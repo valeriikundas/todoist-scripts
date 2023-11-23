@@ -14,36 +14,70 @@ import (
 func main() {
 	log.SetFlags(log.LstdFlags | log.Lshortfile)
 
-	showProjectsWithTooManyNextActionTasks()
+	nextActionsTasksLimitPerProject := 3
+	projectsWithTooManyTasks, projectsWithZeroTasks := getProjectsWithTooManyAndZeroTasks(nextActionsTasksLimitPerProject)
+	printOutput(projectsWithTooManyTasks, projectsWithZeroTasks)
 }
 
-func showProjectsWithTooManyNextActionTasks() {
+func getProjectsWithTooManyAndZeroTasks(limit int) (projectsWithTooManyTasks []ResultUnit, projectsWithZeroTasks []ResultUnit) {
 	// TODO: maybe `get all sections` will be more useful
 	projects := todoistListProjects()
 	tasks := getTasks()
 	nextActionTasks := mapTasksToProjectAndFilterByLabel(projects, tasks)
-	nextActionsTasksLimitPerProject := 3
-	printOutput(nextActionTasks, nextActionsTasksLimitPerProject)
+	projectsWithTooManyTasks, projectsWithZeroTasks = filterProjects(nextActionTasks, limit)
+	return projectsWithTooManyTasks, projectsWithZeroTasks
 }
 
-func printOutput(nextActionTasks map[string][]GetTaskSchema, nextActionsTasksLimitPerProject int) {
-	// FIXME: split filtering and outputting
+func printOutput(aboveLimitProjects []ResultUnit, zeroTaskProjects []ResultUnit) {
+	for _, p := range aboveLimitProjects {
+		fmt.Printf("project \"%s\" has %d @next_action tasks, max allowed is %d. ",
+			p.projectName, p.tasksCount, p.limit)
+		fmt.Printf("please review and fix at %s\n", p.url)
+	}
+
+	for _, p := range zeroTaskProjects {
+		fmt.Printf("does not have @next_action tasks: projectName=%s.", p.projectName)
+		fmt.Printf("please review and fix at %s\n", p.url)
+	}
+}
+
+type ResultUnit struct {
+	projectName string
+	tasksCount  int
+	url         string
+	limit       int
+}
+
+type ProjectID string
+
+func filterProjects(nextActionTasks map[string][]GetTaskSchema, nextActionsTasksLimitPerProject int) ([]ResultUnit, []ResultUnit) {
+	// FIXME: split into 2 different filter functions
+	projectsWithTooManyTasks := []ResultUnit{}
+	projectsWithZeroTasks := []ResultUnit{}
+
 	for projectName, projectTasks := range nextActionTasks {
 		if len(projectTasks) > nextActionsTasksLimitPerProject {
 			filterLabel := "next_action"
 			url := getTasksURL(projectName, &filterLabel)
-			fmt.Printf("project \"%s\" has %d @next_action tasks, max allowed is %d. ", projectName, len(projectTasks), nextActionsTasksLimitPerProject)
-			fmt.Printf("please review and fix at %s\n", url)
-			continue
+			projectsWithTooManyTasks = append(projectsWithTooManyTasks, ResultUnit{
+				projectName: projectName,
+				tasksCount:  len(projectTasks),
+				url:         url,
+				limit:       nextActionsTasksLimitPerProject,
+			})
 		}
-
 		if len(projectTasks) == 0 {
 			url := getTasksURL(projectName, nil)
-			fmt.Printf("does not have @next_action tasks: projectName=%s.", projectName)
-			fmt.Printf("please review and fix at %s\n", url)
-			continue
+			projectsWithZeroTasks = append(projectsWithZeroTasks, ResultUnit{
+				projectName: projectName,
+				tasksCount:  0,
+				url:         url,
+				limit:       nextActionsTasksLimitPerProject,
+			})
 		}
 	}
+
+	return projectsWithTooManyTasks, projectsWithZeroTasks
 }
 
 func mapTasksToProjectAndFilterByLabel(projects []GetProjectSchema, tasks []GetTaskSchema) map[string][]GetTaskSchema {
