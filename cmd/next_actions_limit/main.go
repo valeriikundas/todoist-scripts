@@ -14,11 +14,41 @@ import (
 func main() {
 	log.SetFlags(log.LstdFlags | log.Lshortfile)
 
+	showProjectsWithTooManyNextActionTasks()
+}
+
+func showProjectsWithTooManyNextActionTasks() {
 	// TODO: maybe `get all sections` will be more useful
 	projects := todoistListProjects()
-
 	tasks := getTasks()
+	nextActionTasks := mapTasksToProjectAndFilterByLabel(projects, tasks)
+	nextActionsTasksLimitPerProject := 3
+	printOutput(nextActionTasks, nextActionsTasksLimitPerProject)
+}
 
+func printOutput(nextActionTasks map[string][]GetTaskSchema, nextActionsTasksLimitPerProject int) {
+	// FIXME: split filtering and outputting
+	for projectName, projectTasks := range nextActionTasks {
+		if len(projectTasks) > nextActionsTasksLimitPerProject {
+			filterLabel := "next_action"
+			url := getTasksURL(projectName, &filterLabel)
+			fmt.Printf("project \"%s\" has %d @next_action tasks, max allowed is %d. ", projectName, len(projectTasks), nextActionsTasksLimitPerProject)
+			fmt.Printf("please review and fix at %s\n", url)
+			continue
+		}
+
+		if len(projectTasks) == 0 {
+			url := getTasksURL(projectName, nil)
+			fmt.Printf("does not have @next_action tasks: projectName=%s.", projectName)
+			fmt.Printf("please review and fix at %s\n", url)
+			continue
+		}
+	}
+}
+
+func mapTasksToProjectAndFilterByLabel(projects []GetProjectSchema, tasks []GetTaskSchema) map[string][]GetTaskSchema {
+	// FIXME: split into 2 steps: 1. filter tasks by label 2. map tasks to project
+	// FIXME: move tasks filter to API query
 	// FIXME: rewrite to map[projecID]Task
 	nextActionTasks := map[string][]GetTaskSchema{}
 	for _, task := range tasks {
@@ -40,25 +70,7 @@ func main() {
 			nextActionTasks[*projectName] = append(nextActionTasks[*projectName], task)
 		}
 	}
-
-	nextActionsTasksLimitPerProject := 3
-
-	for projectName, localTasks := range nextActionTasks {
-		if len(localTasks) > nextActionsTasksLimitPerProject {
-			filterLabel := "next_action"
-			url := getTasksURL(projectName, &filterLabel)
-			fmt.Printf("project \"%s\" has %d @next_action tasks, max allowed is %d. ", projectName, len(localTasks), nextActionsTasksLimitPerProject)
-			fmt.Printf("please review and fix at %s\n", url)
-			continue
-		}
-
-		if len(localTasks) == 0 {
-			url := getTasksURL(projectName, nil)
-			fmt.Printf("does not have @next_action tasks: projectName=%s.", projectName)
-			fmt.Printf("please review and fix at %s\n", url)
-			continue
-		}
-	}
+	return nextActionTasks
 }
 
 func getTasksURL(projectName string, label *string) string {
