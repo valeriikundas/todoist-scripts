@@ -6,6 +6,7 @@ import (
 	"io"
 	"log"
 	"net/http"
+	"net/url"
 	"os"
 	"strings"
 )
@@ -18,12 +19,13 @@ func main() {
 
 	tasks := getTasks()
 
+	// FIXME: rewrite to map[projecID]Task
 	nextActionTasks := map[string][]GetTaskSchema{}
 	for _, task := range tasks {
 		projectName := getProjectNameByProjectID(task.ProjectID, projects)
 		if projectName == nil {
 			// FIXME: look into it
-			// log.Printf("nil projectName for projectid=%v taskName=%v\n", task.ProjectID, task.Content)
+			// log.Printf("nil projectName for projectid=%s taskName=%s\n", task.ProjectID, task.Content)
 			continue
 		}
 
@@ -43,14 +45,32 @@ func main() {
 
 	for projectName, localTasks := range nextActionTasks {
 		if len(localTasks) > nextActionsTasksLimitPerProject {
-			fmt.Printf("has more @next_action tasks than allowed: projectName=%v tasks=%v\n", projectName, len(localTasks))
+			filterLabel := "next_action"
+			url := getTasksURL(projectName, &filterLabel)
+			fmt.Printf("project \"%s\" has %d @next_action tasks, max allowed is %d. ", projectName, len(localTasks), nextActionsTasksLimitPerProject)
+			fmt.Printf("please review and fix at %s\n", url)
 			continue
 		}
+
 		if len(localTasks) == 0 {
-			fmt.Printf("does not have @next_action tasks: projectName=%v\n", projectName)
+			url := getTasksURL(projectName, nil)
+			fmt.Printf("does not have @next_action tasks: projectName=%s.", projectName)
+			fmt.Printf("please review and fix at %s\n", url)
 			continue
 		}
 	}
+}
+
+func getTasksURL(projectName string, label *string) string {
+	var query string
+	if label == nil {
+		query = fmt.Sprintf("#%s", projectName)
+	} else {
+		query = fmt.Sprintf("@%s&#%s", *label, projectName)
+	}
+	escapedQuery := url.QueryEscape(query)
+	url := fmt.Sprintf("https://todoist.com/app/search/%s", escapedQuery)
+	return url
 }
 
 func todoistListProjects() []GetProjectSchema {
@@ -69,7 +89,7 @@ func todoistListProjects() []GetProjectSchema {
 
 func doTodoistRequest(url string) []byte {
 	token := getApiToken()
-	headerKey, headerValue := "Authorization", fmt.Sprintf("Bearer %v", token)
+	headerKey, headerValue := "Authorization", fmt.Sprintf("Bearer %s", token)
 	req, err := http.NewRequest(http.MethodGet, url, nil)
 	req.Header.Add(headerKey, headerValue)
 	if err != nil {
@@ -116,7 +136,7 @@ type GetProjectSchema struct {
 
 func getProjectTasks(project GetProjectSchema) []GetTaskSchema {
 	projectID := project.ID
-	url := fmt.Sprintf("https://api.todoist.com/rest/v2/tasks?project_id=%v", projectID)
+	url := fmt.Sprintf("https://api.todoist.com/rest/v2/tasks?project_id=%s", projectID)
 	b := doTodoistRequest(url)
 
 	var tasks []GetTaskSchema
