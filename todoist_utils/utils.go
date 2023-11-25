@@ -14,7 +14,7 @@ import (
 
 func GetProjectsWithTooManyAndZeroTasks(limit int) (projectsWithTooManyTasks []ResultUnit, projectsWithZeroTasks []ResultUnit) {
 	// TODO: maybe `get all sections` will be more useful
-	projects := TodoistListProjects()
+	projects := GetProjectList()
 	tasks := getTasks()
 	nextActionTasks := mapTasksToProjectAndFilterByLabel(projects, tasks)
 	projectsWithTooManyTasks, projectsWithZeroTasks = filterProjects(nextActionTasks, limit)
@@ -112,7 +112,7 @@ func getTasksURL(projectName string, label *string) string {
 	return url
 }
 
-func TodoistListProjects() []Project {
+func GetProjectList() []Project {
 	url := "https://api.todoist.com/rest/v2/projects"
 
 	b := DoTodoistRequest(url)

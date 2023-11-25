@@ -6,49 +6,49 @@ import (
 	"io"
 	"log"
 	"net/http"
-	"net/http/httputil"
 	"strings"
 	"time"
 
 	"github.com/google/uuid"
-	"github.com/valeriikundas/todoist-scripts/todoist_utils"
+	todoist "github.com/valeriikundas/todoist-scripts/todoist_utils"
 )
 
 func main() {
 	log.SetFlags(log.LstdFlags | log.Lshortfile)
 
-	projects := todoist_utils.TodoistListProjects()
+	srcProjectName := "Inbox"
+	dstProjectName := "inbox_archive"
+	oldThreshold := time.Hour * 24 * 3
 
-	inboxProject, ok := findProjectByName(projects, "Inbox")
-	if !ok {
-		log.Fatalln("did not find `inbox` project")
-	}
+	dryRun := false
 
-	oldTasks := todoist_utils.GetProjectTasks(*inboxProject)
-
-	// oldTasks := filterOldTasks(tasks, time.Hour*24*3)
-
-	inboxArchiveProjectID, ok := findProjectByName(projects, "inbox_archive")
-	if !ok {
-		log.Fatalln("did not find `inbox_archive` project")
-	}
-	log.Printf("inboxArchiveProjectID=%v\n", inboxArchiveProjectID.ID)
-
-	moveTasks(oldTasks, inboxArchiveProjectID.ID)
+	moveOlderTasks(srcProjectName, dstProjectName, oldThreshold, dryRun)
 }
 
-func moveTasks(tasks []todoist_utils.Task, projectID string) {
-	// TODO: move task solution https://github.com/Doist/todoist-api-python/issues/8#issuecomment-1344860782
+func moveOlderTasks(srcProjectName, dstProjectName string, oldThreshold time.Duration, dryRun bool) {
+	projects := todoist.GetProjectList()
 
+	srcProject, ok := findProjectByName(projects, srcProjectName)
+	if !ok {
+		log.Fatalf("did not find `%s` project\n", srcProjectName)
+	}
+
+	tasks := todoist.GetProjectTasks(*srcProject)
+	oldTasks := filterOldTasks(tasks, oldThreshold)
+
+	dstProject, ok := findProjectByName(projects, dstProjectName)
+	if !ok {
+		log.Fatalf("did not find `%s` project\n", srcProjectName)
+	}
+
+	moveTasks(oldTasks, dstProject.ID, dryRun)
+}
+
+func moveTasks(tasks []todoist.Task, projectID string, dryRun bool) {
+	// FIXME: rewrite with single todoist sync api request
 	for _, t := range tasks {
-		log.Printf("will move %v", t.Content)
-		moveTaskSyncApi(t.ID, projectID)
-		break
+		moveTask(t.ID, projectID, dryRun)
 	}
-}
-
-type R struct {
-	Commands []Command `json:"commands"`
 }
 
 type Command struct {
@@ -62,7 +62,12 @@ type X struct {
 	ProjectID string `json:"project_id"`
 }
 
-func moveTaskSyncApi(task_id string, project_id string) {
+func moveTask(task_id string, project_id string, dryRun bool) {
+	if dryRun {
+		log.Printf("moving task_id=%s to project_id=%s\n", task_id, project_id)
+		return
+	}
+
 	commands := []Command{
 		{
 			Type: "item_move",
@@ -78,29 +83,34 @@ func moveTaskSyncApi(task_id string, project_id string) {
 	if err != nil {
 		log.Fatal(err)
 	}
-
 	bodyReader := strings.NewReader(fmt.Sprintf("commands=%+s", string(b)))
 
-	resp := DoTodoistRequestV2("https://api.todoist.com/sync/v9/sync", bodyReader)
-	log.Print(string(resp))
+	resp := DoTodoistPostRequest(http.MethodPost, "https://api.todoist.com/sync/v9/sync", bodyReader)
+
+	var v map[string]interface{}
+	err = json.Unmarshal(resp, &v)
+	if err != nil {
+		log.Fatal(err)
+	}
+
+	status, ok := v["sync_status"]
+	if !ok {
+		log.Fatal("todoist request failed")
+	}
+
+	log.Print(status)
 }
 
-func DoTodoistRequestV2(url string, body io.Reader) []byte {
-	token := todoist_utils.GetApiToken()
+func DoTodoistPostRequest(method string, url string, body io.Reader) []byte {
+	token := todoist.GetApiToken()
 	headerKey, headerValue := "Authorization", fmt.Sprintf("Bearer %s", token)
-	req, err := http.NewRequest(http.MethodPost, url, body)
+
+	req, err := http.NewRequest(method, url, body)
 	if err != nil {
 		log.Fatal(err)
 	}
 	req.Header.Add(headerKey, headerValue)
 	req.Header.Add("Content-Type", "application/x-www-form-urlencoded")
-	// req.Header.Add("X-Request-Id", "$(uuidgen)")
-
-	b, err := httputil.DumpRequestOut(req, true)
-	if err != nil {
-		log.Fatal(err)
-	}
-	log.Printf("REQUEST:\n%s\n", b)
 
 	// FIXME: construct client once, do requests then
 	client := &http.Client{}
@@ -108,13 +118,13 @@ func DoTodoistRequestV2(url string, body io.Reader) []byte {
 	if err != nil {
 		log.Fatal(err)
 	}
-	log.Printf("resp.StatusCode=%v\n", resp.StatusCode)
+
 	if resp.StatusCode != http.StatusOK {
-		bd, err := io.ReadAll(resp.Body)
+		body, err := io.ReadAll(resp.Body)
 		if err != nil {
 			log.Fatal(err)
 		}
-		log.Fatalf("code=%d body=%v\n", resp.StatusCode, string(bd))
+		log.Fatalf("todoist request failed, url=%s, code=%d, body=%v\n", url, resp.StatusCode, string(body))
 	}
 
 	resultBytes, err := io.ReadAll(resp.Body)
@@ -125,21 +135,21 @@ func DoTodoistRequestV2(url string, body io.Reader) []byte {
 	return resultBytes
 }
 
-func filterOldTasks(tasks []todoist_utils.Task, duration time.Duration) []todoist_utils.Task {
-	result := make([]todoist_utils.Task, len(tasks))
+func filterOldTasks(tasks []todoist.Task, duration time.Duration) []todoist.Task {
+	filteredTasks := make([]todoist.Task, len(tasks))
 	k := 0
 
 	for _, t := range tasks {
-		threeDaysAgo := time.Now().Add(-3 * 24 * time.Hour)
-		if t.CreatedAt.Compare(threeDaysAgo) == -1 {
-			result[k] = t
+		oldTaskThreshold := time.Now().Add(-duration)
+		if t.CreatedAt.Compare(oldTaskThreshold) == -1 {
+			filteredTasks[k] = t
 			k += 1
 		}
 	}
-	return result
+	return filteredTasks
 }
 
-func findProjectByName(projects []todoist_utils.Project, projectName string) (*todoist_utils.Project, bool) {
+func findProjectByName(projects []todoist.Project, projectName string) (*todoist.Project, bool) {
 	for _, p := range projects {
 		if p.Name == projectName {
 			return &p, true
