@@ -8,10 +8,10 @@ import (
 	todoist "github.com/valeriikundas/todoist-scripts/todoist_utils"
 )
 
-var secrets struct {
-	// FIXME: move from .env here
-	TodoistApiToken string
-}
+// FIXME: move from .env here
+// var secrets struct {
+// 	TodoistApiToken string
+// }
 
 // Send Telegram message with projects that has too many and zero active tasks.
 var _ = cron.NewJob("incorrect-projects-notifier", cron.JobConfig{
