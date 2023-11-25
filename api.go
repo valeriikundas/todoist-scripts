@@ -26,7 +26,7 @@ var _ = cron.NewJob("older-tasks-archivator", cron.JobConfig{
 	Endpoint: ArchiveOlderTasksEndpoint,
 })
 
-//encore:api private path=/projects/incorrect
+//encore:api private method=GET path=/projects/incorrect
 func GetIncorrectProjectsEndpoint(ctx context.Context) (*IncorrectResponse, error) {
 	tooMany, zero := todoist.GetProjectsWithTooManyAndZeroTasks(3, secrets.TodoistApiToken)
 	combined := IncorrectResponse{
