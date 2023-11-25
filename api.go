@@ -27,23 +27,6 @@ var _ = cron.NewJob("older-tasks-archivator", cron.JobConfig{
 	Endpoint: ArchiveOlderTasksEndpoint,
 })
 
-// ==================================================================
-
-// Next steps
-//
-// 1. Deploy your application to the cloud
-//
-//     git add -A .
-//     git commit -m 'Commit message'
-//     git push encore
-//
-// 2. To continue exploring Encore, check out one of these topics:
-//
-//    Building a Slack bot:  https://encore.dev/docs/tutorials/slack-bot
-//    Building a REST API:   https://encore.dev/docs/tutorials/rest-api
-//    Using SQL databases:   https://encore.dev/docs/develop/databases
-//    Authenticating users:  https://encore.dev/docs/develop/auth
-
 //encore:api public path=/projects/incorrect
 func GetIncorrectProjectsEndpoint(ctx context.Context) (*IncorrectResponse, error) {
 	tooMany, zero := todoist.GetProjectsWithTooManyAndZeroTasks(3)
