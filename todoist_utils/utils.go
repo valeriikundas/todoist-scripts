@@ -205,12 +205,11 @@ func getTasks() []Task {
 }
 
 type Task struct {
-	ID          string
-	ProjectID   string `json:"project_id"`
-	Content     string
-	Description string
-	Labels      []string
-	CreatedAt   TimeParser `json:"created_at"`
+	ID        string     `json:"id"`
+	ProjectID string     `json:"project_id"`
+	Content   string     `json:"content"`
+	Labels    []string   `json:"labels"`
+	CreatedAt TimeParser `json:"created_at"`
 }
 
 type TimeParser struct {

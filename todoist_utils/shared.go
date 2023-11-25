@@ -51,10 +51,12 @@ type X struct {
 }
 
 func moveTask(task_id string, project_id string, dryRun bool) {
+	logMessage := fmt.Sprintf("moving task_id=%s to project_id=%s\n", task_id, project_id)
 	if dryRun {
-		log.Printf("moving task_id=%s to project_id=%s\n", task_id, project_id)
+		log.Printf("dry run: %v", logMessage)
 		return
 	}
+	log.Println(logMessage)
 
 	commands := []Command{
 		{
@@ -124,14 +126,12 @@ func DoTodoistPostRequest(method string, url string, body io.Reader) []byte {
 }
 
 func filterOldTasks(tasks []Task, duration time.Duration) []Task {
-	filteredTasks := make([]Task, len(tasks))
-	k := 0
+	filteredTasks := make([]Task, 0, len(tasks))
 
 	for _, t := range tasks {
 		oldTaskThreshold := time.Now().Add(-duration)
 		if t.CreatedAt.Compare(oldTaskThreshold) == -1 {
-			filteredTasks[k] = t
-			k += 1
+			filteredTasks = append(filteredTasks, t)
 		}
 	}
 	return filteredTasks
