@@ -45,7 +45,7 @@ type IncorrectResponse struct {
 //encore:api private method=POST path=/tasks/archive-older
 func ArchiveOlderTasksEndpoint(ctx context.Context) (*MoveOlderTasksResponse, error) {
 	todoist := todoist.NewTodoist(secrets.TodoistApiToken)
-	srcProjectName, dstProjectName, oldThreshold, dryRun := "Inbox", "inbox_archive", time.Hour*24*3, true
+	srcProjectName, dstProjectName, oldThreshold, dryRun := "Inbox", "inbox_archive", time.Hour*24*3, false
 	tasks := todoist.MoveOlderTasks(srcProjectName, dstProjectName, oldThreshold, dryRun)
 	return &MoveOlderTasksResponse{
 		Tasks: tasks,
