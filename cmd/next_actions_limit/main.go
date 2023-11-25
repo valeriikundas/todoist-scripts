@@ -12,4 +12,6 @@ func main() {
 	nextActionsTasksLimitPerProject := 3
 	projectsWithTooManyTasks, projectsWithZeroTasks := todoist_utils.GetProjectsWithTooManyAndZeroTasks(nextActionsTasksLimitPerProject)
 	todoist_utils.PrintOutput(projectsWithTooManyTasks, projectsWithZeroTasks)
+
+	// TODO: send notification in telegram
 }
