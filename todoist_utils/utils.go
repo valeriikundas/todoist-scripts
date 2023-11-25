@@ -9,11 +9,12 @@ import (
 	"net/url"
 	"os"
 	"strings"
+	"time"
 )
 
 func GetProjectsWithTooManyAndZeroTasks(limit int) (projectsWithTooManyTasks []ResultUnit, projectsWithZeroTasks []ResultUnit) {
 	// TODO: maybe `get all sections` will be more useful
-	projects := todoistListProjects()
+	projects := TodoistListProjects()
 	tasks := getTasks()
 	nextActionTasks := mapTasksToProjectAndFilterByLabel(projects, tasks)
 	projectsWithTooManyTasks, projectsWithZeroTasks = filterProjects(nextActionTasks, limit)
@@ -42,7 +43,7 @@ type ResultUnit struct {
 
 type ProjectID string
 
-func filterProjects(nextActionTasks map[string][]GetTaskSchema, nextActionsTasksLimitPerProject int) ([]ResultUnit, []ResultUnit) {
+func filterProjects(nextActionTasks map[string][]Task, nextActionsTasksLimitPerProject int) ([]ResultUnit, []ResultUnit) {
 	// FIXME: split into 2 different filter functions
 	projectsWithTooManyTasks := []ResultUnit{}
 	projectsWithZeroTasks := []ResultUnit{}
@@ -72,11 +73,11 @@ func filterProjects(nextActionTasks map[string][]GetTaskSchema, nextActionsTasks
 	return projectsWithTooManyTasks, projectsWithZeroTasks
 }
 
-func mapTasksToProjectAndFilterByLabel(projects []GetProjectSchema, tasks []GetTaskSchema) map[string][]GetTaskSchema {
+func mapTasksToProjectAndFilterByLabel(projects []Project, tasks []Task) map[string][]Task {
 	// FIXME: split into 2 steps: 1. filter tasks by label 2. map tasks to project
 	// FIXME: move tasks filter to API query
 	// FIXME: rewrite to map[projecID]Task
-	nextActionTasks := map[string][]GetTaskSchema{}
+	nextActionTasks := map[string][]Task{}
 	for _, task := range tasks {
 		projectName := getProjectNameByProjectID(task.ProjectID, projects)
 		if projectName == nil {
@@ -111,12 +112,12 @@ func getTasksURL(projectName string, label *string) string {
 	return url
 }
 
-func todoistListProjects() []GetProjectSchema {
+func TodoistListProjects() []Project {
 	url := "https://api.todoist.com/rest/v2/projects"
 
-	b := doTodoistRequest(url)
+	b := DoTodoistRequest(url)
 
-	var projects []GetProjectSchema
+	var projects []Project
 	err := json.Unmarshal(b, &projects)
 	if err != nil {
 		log.Fatal(err)
@@ -125,14 +126,15 @@ func todoistListProjects() []GetProjectSchema {
 	return projects
 }
 
-func doTodoistRequest(url string) []byte {
-	token := getApiToken()
-	headerKey, headerValue := "Authorization", fmt.Sprintf("Bearer %s", token)
+func DoTodoistRequest(url string) []byte {
 	req, err := http.NewRequest(http.MethodGet, url, nil)
-	req.Header.Add(headerKey, headerValue)
 	if err != nil {
 		log.Fatal(err)
 	}
+
+	token := GetApiToken()
+	headerKey, headerValue := "Authorization", fmt.Sprintf("Bearer %s", token)
+	req.Header.Add(headerKey, headerValue)
 
 	// FIXME: construct client once, do requests then
 	client := &http.Client{}
@@ -149,7 +151,7 @@ func doTodoistRequest(url string) []byte {
 	return b
 }
 
-func getApiToken() string {
+func GetApiToken() string {
 	// FIXME: rewrite with `github.com/joho/godotenv`
 	file, err := os.Open(".env")
 	if err != nil {
@@ -166,18 +168,18 @@ func getApiToken() string {
 	return apiToken
 }
 
-type GetProjectSchema struct {
+type Project struct {
 	ID   string
 	Name string
 	Url  string
 }
 
-func getProjectTasks(project GetProjectSchema) []GetTaskSchema {
+func GetProjectTasks(project Project) []Task {
 	projectID := project.ID
 	url := fmt.Sprintf("https://api.todoist.com/rest/v2/tasks?project_id=%s", projectID)
-	b := doTodoistRequest(url)
+	b := DoTodoistRequest(url)
 
-	var tasks []GetTaskSchema
+	var tasks []Task
 	err := json.Unmarshal(b, &tasks)
 	if err != nil {
 		log.Fatal(err)
@@ -186,11 +188,11 @@ func getProjectTasks(project GetProjectSchema) []GetTaskSchema {
 	return tasks
 }
 
-func getTasks() []GetTaskSchema {
+func getTasks() []Task {
 	url := "https://api.todoist.com/rest/v2/tasks"
-	b := doTodoistRequest(url)
+	b := DoTodoistRequest(url)
 
-	var tasks []GetTaskSchema
+	var tasks []Task
 	err := json.Unmarshal(b, &tasks)
 	if err != nil {
 		log.Fatal(err)
@@ -199,15 +201,29 @@ func getTasks() []GetTaskSchema {
 	return tasks
 }
 
-type GetTaskSchema struct {
+type Task struct {
 	ID          string
 	ProjectID   string `json:"project_id"`
 	Content     string
 	Description string
 	Labels      []string
+	CreatedAt   TimeParser `json:"created_at"`
 }
 
-func getProjectNameByProjectID(projectID string, projects []GetProjectSchema) *string {
+type TimeParser struct {
+	time.Time
+}
+
+func (tp *TimeParser) UnmarshalJSON(b []byte) (err error) {
+	time, err := time.Parse(`"2006-01-02T15:04:05.000000Z"`, string(b))
+	if err != nil {
+		return err
+	}
+	tp.Time = time
+	return
+}
+
+func getProjectNameByProjectID(projectID string, projects []Project) *string {
 	for _, p := range projects {
 		if p.ID == projectID {
 			return &p.Name
