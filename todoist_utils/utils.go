@@ -1,25 +1,14 @@
 package todoist_utils
 
 import (
-	"encoding/json"
 	"fmt"
 	"io"
 	"log"
-	"net/http"
 	"net/url"
 	"os"
 	"strings"
 	"time"
 )
-
-func GetProjectsWithTooManyAndZeroTasks(limit int, apiToken string) (projectsWithTooManyTasks []ResultUnit, projectsWithZeroTasks []ResultUnit) {
-	// TODO: maybe `get all sections` will be more useful
-	projects := GetProjectList(apiToken)
-	tasks := getTasks(apiToken)
-	nextActionTasks := mapTasksToProjectAndFilterByLabel(projects, tasks)
-	projectsWithTooManyTasks, projectsWithZeroTasks = filterProjects(nextActionTasks, limit)
-	return projectsWithTooManyTasks, projectsWithZeroTasks
-}
 
 func PrintOutput(aboveLimitProjects []ResultUnit, zeroTaskProjects []ResultUnit) {
 	for _, p := range aboveLimitProjects {
@@ -115,44 +104,6 @@ func getTasksURL(projectName string, label *string) string {
 	return url
 }
 
-func GetProjectList(apiToken string) []Project {
-	url := "https://api.todoist.com/rest/v2/projects"
-
-	b := DoTodoistRequest(url, apiToken)
-
-	var projects []Project
-	err := json.Unmarshal(b, &projects)
-	if err != nil {
-		log.Fatal(err)
-	}
-
-	return projects
-}
-
-func DoTodoistRequest(url string, apiToken string) []byte {
-	req, err := http.NewRequest(http.MethodGet, url, nil)
-	if err != nil {
-		log.Fatal(err)
-	}
-
-	headerKey, headerValue := "Authorization", fmt.Sprintf("Bearer %s", apiToken)
-	req.Header.Add(headerKey, headerValue)
-
-	// FIXME: construct client once, do requests then
-	client := &http.Client{}
-	resp, err := client.Do(req)
-	if err != nil {
-		log.Fatal(err)
-	}
-
-	b, err := io.ReadAll(resp.Body)
-	if err != nil {
-		log.Fatal(err)
-	}
-
-	return b
-}
-
 func ReadApiTokenFromDotenv() string {
 	// FIXME: rewrite with `github.com/joho/godotenv`
 	file, err := os.Open(".env")
@@ -174,33 +125,6 @@ type Project struct {
 	ID   string
 	Name string
 	Url  string
-}
-
-func GetProjectTasks(project Project, apiToken string) []Task {
-	projectID := project.ID
-	url := fmt.Sprintf("https://api.todoist.com/rest/v2/tasks?project_id=%s", projectID)
-	b := DoTodoistRequest(url, apiToken)
-
-	var tasks []Task
-	err := json.Unmarshal(b, &tasks)
-	if err != nil {
-		log.Fatal(err)
-	}
-
-	return tasks
-}
-
-func getTasks(apiToken string) []Task {
-	url := "https://api.todoist.com/rest/v2/tasks"
-	b := DoTodoistRequest(url, apiToken)
-
-	var tasks []Task
-	err := json.Unmarshal(b, &tasks)
-	if err != nil {
-		log.Fatal(err)
-	}
-
-	return tasks
 }
 
 type Task struct {

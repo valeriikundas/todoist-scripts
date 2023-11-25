@@ -16,5 +16,6 @@ func main() {
 	dryRun := false
 	apiToken := todoist.ReadApiTokenFromDotenv()
 
-	todoist.MoveOlderTasks(srcProjectName, dstProjectName, oldThreshold, dryRun, apiToken)
+	todoist := todoist.NewTodoist(apiToken)
+	todoist.MoveOlderTasks(srcProjectName, dstProjectName, oldThreshold, dryRun)
 }

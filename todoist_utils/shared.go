@@ -1,43 +1,8 @@
 package todoist_utils
 
 import (
-	"encoding/json"
-	"fmt"
-	"io"
-	"log"
-	"net/http"
-	"strings"
 	"time"
-
-	"github.com/google/uuid"
 )
-
-func MoveOlderTasks(srcProjectName, dstProjectName string, oldThreshold time.Duration, dryRun bool, apiToken string) []Task {
-	projects := GetProjectList(apiToken)
-
-	srcProject, ok := findProjectByName(projects, srcProjectName)
-	if !ok {
-		log.Fatalf("did not find `%s` project\n", srcProjectName)
-	}
-
-	tasks := GetProjectTasks(*srcProject, apiToken)
-	oldTasks := filterOldTasks(tasks, oldThreshold)
-
-	dstProject, ok := findProjectByName(projects, dstProjectName)
-	if !ok {
-		log.Fatalf("did not find `%s` project\n", srcProjectName)
-	}
-
-	moveTasks(oldTasks, dstProject.ID, dryRun, apiToken)
-	return oldTasks
-}
-
-func moveTasks(tasks []Task, projectID string, dryRun bool, apiToken string) {
-	// FIXME: rewrite with single todoist sync api request
-	for _, t := range tasks {
-		moveTask(t.ID, projectID, dryRun, apiToken)
-	}
-}
 
 type Command struct {
 	Type string `json:"type"`
@@ -48,80 +13,6 @@ type Command struct {
 type X struct {
 	Id        string `json:"id"`
 	ProjectID string `json:"project_id"`
-}
-
-func moveTask(task_id string, project_id string, dryRun bool, apiToken string) {
-	logMessage := fmt.Sprintf("moving task_id=%s to project_id=%s\n", task_id, project_id)
-	if dryRun {
-		log.Printf("dry run: %v", logMessage)
-		return
-	}
-	log.Println(logMessage)
-
-	commands := []Command{
-		{
-			Type: "item_move",
-			Args: X{
-				Id:        task_id,
-				ProjectID: project_id,
-			},
-			Uuid: uuid.New().String(),
-		},
-	}
-
-	b, err := json.Marshal(commands)
-	if err != nil {
-		log.Fatal(err)
-	}
-	bodyReader := strings.NewReader(fmt.Sprintf("commands=%+s", string(b)))
-
-	resp := DoTodoistPostRequest(http.MethodPost, "https://api.todoist.com/sync/v9/sync", bodyReader, apiToken)
-
-	var v map[string]interface{}
-	err = json.Unmarshal(resp, &v)
-	if err != nil {
-		log.Fatal(err)
-	}
-
-	status, ok := v["sync_status"]
-	if !ok {
-		log.Fatal("todoist request failed")
-	}
-
-	log.Print(status)
-}
-
-func DoTodoistPostRequest(method string, url string, body io.Reader, apiToken string) []byte {
-	headerKey, headerValue := "Authorization", fmt.Sprintf("Bearer %s", apiToken)
-
-	req, err := http.NewRequest(method, url, body)
-	if err != nil {
-		log.Fatal(err)
-	}
-	req.Header.Add(headerKey, headerValue)
-	req.Header.Add("Content-Type", "application/x-www-form-urlencoded")
-
-	// FIXME: construct client once, do requests then
-	client := &http.Client{}
-	resp, err := client.Do(req)
-	if err != nil {
-		log.Fatal(err)
-	}
-
-	if resp.StatusCode != http.StatusOK {
-		body, err := io.ReadAll(resp.Body)
-		if err != nil {
-			log.Fatal(err)
-		}
-		log.Fatalf("todoist request failed, url=%s, code=%d, body=%v\n", url, resp.StatusCode, string(body))
-	}
-
-	resultBytes, err := io.ReadAll(resp.Body)
-	if err != nil {
-		log.Fatal(err)
-	}
-
-	return resultBytes
 }
 
 func filterOldTasks(tasks []Task, duration time.Duration) []Task {
