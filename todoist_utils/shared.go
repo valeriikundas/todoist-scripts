@@ -12,15 +12,15 @@ import (
 	"github.com/google/uuid"
 )
 
-func MoveOlderTasks(srcProjectName, dstProjectName string, oldThreshold time.Duration, dryRun bool) []Task {
-	projects := GetProjectList()
+func MoveOlderTasks(srcProjectName, dstProjectName string, oldThreshold time.Duration, dryRun bool, apiToken string) []Task {
+	projects := GetProjectList(apiToken)
 
 	srcProject, ok := findProjectByName(projects, srcProjectName)
 	if !ok {
 		log.Fatalf("did not find `%s` project\n", srcProjectName)
 	}
 
-	tasks := GetProjectTasks(*srcProject)
+	tasks := GetProjectTasks(*srcProject, apiToken)
 	oldTasks := filterOldTasks(tasks, oldThreshold)
 
 	dstProject, ok := findProjectByName(projects, dstProjectName)
@@ -28,14 +28,14 @@ func MoveOlderTasks(srcProjectName, dstProjectName string, oldThreshold time.Dur
 		log.Fatalf("did not find `%s` project\n", srcProjectName)
 	}
 
-	moveTasks(oldTasks, dstProject.ID, dryRun)
+	moveTasks(oldTasks, dstProject.ID, dryRun, apiToken)
 	return oldTasks
 }
 
-func moveTasks(tasks []Task, projectID string, dryRun bool) {
+func moveTasks(tasks []Task, projectID string, dryRun bool, apiToken string) {
 	// FIXME: rewrite with single todoist sync api request
 	for _, t := range tasks {
-		moveTask(t.ID, projectID, dryRun)
+		moveTask(t.ID, projectID, dryRun, apiToken)
 	}
 }
 
@@ -50,7 +50,7 @@ type X struct {
 	ProjectID string `json:"project_id"`
 }
 
-func moveTask(task_id string, project_id string, dryRun bool) {
+func moveTask(task_id string, project_id string, dryRun bool, apiToken string) {
 	logMessage := fmt.Sprintf("moving task_id=%s to project_id=%s\n", task_id, project_id)
 	if dryRun {
 		log.Printf("dry run: %v", logMessage)
@@ -75,7 +75,7 @@ func moveTask(task_id string, project_id string, dryRun bool) {
 	}
 	bodyReader := strings.NewReader(fmt.Sprintf("commands=%+s", string(b)))
 
-	resp := DoTodoistPostRequest(http.MethodPost, "https://api.todoist.com/sync/v9/sync", bodyReader)
+	resp := DoTodoistPostRequest(http.MethodPost, "https://api.todoist.com/sync/v9/sync", bodyReader, apiToken)
 
 	var v map[string]interface{}
 	err = json.Unmarshal(resp, &v)
@@ -91,9 +91,8 @@ func moveTask(task_id string, project_id string, dryRun bool) {
 	log.Print(status)
 }
 
-func DoTodoistPostRequest(method string, url string, body io.Reader) []byte {
-	token := GetApiToken()
-	headerKey, headerValue := "Authorization", fmt.Sprintf("Bearer %s", token)
+func DoTodoistPostRequest(method string, url string, body io.Reader, apiToken string) []byte {
+	headerKey, headerValue := "Authorization", fmt.Sprintf("Bearer %s", apiToken)
 
 	req, err := http.NewRequest(method, url, body)
 	if err != nil {

@@ -10,7 +10,8 @@ func main() {
 	log.SetFlags(log.LstdFlags | log.Lshortfile)
 
 	nextActionsTasksLimitPerProject := 3
-	projectsWithTooManyTasks, projectsWithZeroTasks := todoist.GetProjectsWithTooManyAndZeroTasks(nextActionsTasksLimitPerProject)
+	apiToken := todoist.ReadApiTokenFromDotenv()
+	projectsWithTooManyTasks, projectsWithZeroTasks := todoist.GetProjectsWithTooManyAndZeroTasks(nextActionsTasksLimitPerProject, apiToken)
 	todoist.PrintOutput(projectsWithTooManyTasks, projectsWithZeroTasks)
 
 	// TODO: send notification in telegram

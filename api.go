@@ -8,10 +8,9 @@ import (
 	todoist "github.com/valeriikundas/todoist-scripts/todoist_utils"
 )
 
-// FIXME: move from .env here
-// var secrets struct {
-// 	TodoistApiToken string
-// }
+var secrets struct {
+	TodoistApiToken string
+}
 
 // Send Telegram message with projects that has too many and zero active tasks.
 var _ = cron.NewJob("incorrect-projects-notifier", cron.JobConfig{
@@ -29,7 +28,7 @@ var _ = cron.NewJob("older-tasks-archivator", cron.JobConfig{
 
 //encore:api public path=/projects/incorrect
 func GetIncorrectProjectsEndpoint(ctx context.Context) (*IncorrectResponse, error) {
-	tooMany, zero := todoist.GetProjectsWithTooManyAndZeroTasks(3)
+	tooMany, zero := todoist.GetProjectsWithTooManyAndZeroTasks(3, secrets.TodoistApiToken)
 	combined := IncorrectResponse{
 		TooMany: tooMany,
 		Zero:    zero,
@@ -44,8 +43,8 @@ type IncorrectResponse struct {
 
 //encore:api public method=POST path=/tasks/archive-older
 func ArchiveOlderTasksEndpoint(ctx context.Context) (*MoveOlderTasksResponse, error) {
-	srcProjectName, dstProjectName, oldThreshold, dryRun := "leisure", "inbox_archive", time.Hour*24*3, true
-	tasks := todoist.MoveOlderTasks(srcProjectName, dstProjectName, oldThreshold, dryRun)
+	srcProjectName, dstProjectName, oldThreshold, dryRun := "Inbox", "inbox_archive", time.Hour*24*3, true
+	tasks := todoist.MoveOlderTasks(srcProjectName, dstProjectName, oldThreshold, dryRun, secrets.TodoistApiToken)
 	return &MoveOlderTasksResponse{
 		Tasks: tasks,
 	}, nil

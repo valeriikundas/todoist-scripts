@@ -14,6 +14,7 @@ func main() {
 	dstProjectName := "inbox_archive"
 	oldThreshold := time.Hour * 24 * 3
 	dryRun := false
+	apiToken := todoist.ReadApiTokenFromDotenv()
 
-	todoist.MoveOlderTasks(srcProjectName, dstProjectName, oldThreshold, dryRun)
+	todoist.MoveOlderTasks(srcProjectName, dstProjectName, oldThreshold, dryRun, apiToken)
 }
