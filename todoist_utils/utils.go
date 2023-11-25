@@ -24,21 +24,22 @@ func GetProjectsWithTooManyAndZeroTasks(limit int) (projectsWithTooManyTasks []R
 func PrintOutput(aboveLimitProjects []ResultUnit, zeroTaskProjects []ResultUnit) {
 	for _, p := range aboveLimitProjects {
 		fmt.Printf("project \"%s\" has %d @next_action tasks, max allowed is %d. ",
-			p.projectName, p.tasksCount, p.limit)
-		fmt.Printf("please review and fix at %s\n", p.url)
+			p.ProjectName, p.TasksCount, p.Limit)
+		fmt.Printf("please review and fix at %s\n", p.URL)
 	}
 
 	for _, p := range zeroTaskProjects {
-		fmt.Printf("does not have @next_action tasks: projectName=%s.", p.projectName)
-		fmt.Printf("please review and fix at %s\n", p.url)
+		fmt.Printf("does not have @next_action tasks: projectName=%s.", p.ProjectName)
+		fmt.Printf("please review and fix at %s\n", p.URL)
 	}
 }
 
 type ResultUnit struct {
-	projectName string
-	tasksCount  int
-	url         string
-	limit       int
+	ProjectName string `json:"projectName"`
+	TasksCount  int    `json:"tasksCount"`
+	URL         string `json:"url"`
+	Limit       int    `json:"limit,omitempty"`
+	Description string `json:"description"`
 }
 
 type ProjectID string
@@ -53,19 +54,21 @@ func filterProjects(nextActionTasks map[string][]Task, nextActionsTasksLimitPerP
 			filterLabel := "next_action"
 			url := getTasksURL(projectName, &filterLabel)
 			projectsWithTooManyTasks = append(projectsWithTooManyTasks, ResultUnit{
-				projectName: projectName,
-				tasksCount:  len(projectTasks),
-				url:         url,
-				limit:       nextActionsTasksLimitPerProject,
+				ProjectName: projectName,
+				TasksCount:  len(projectTasks),
+				URL:         url,
+				Limit:       nextActionsTasksLimitPerProject,
+				Description: "Project has more active tasks that allowed",
 			})
 		}
 		if len(projectTasks) == 0 {
 			url := getTasksURL(projectName, nil)
 			projectsWithZeroTasks = append(projectsWithZeroTasks, ResultUnit{
-				projectName: projectName,
-				tasksCount:  0,
-				url:         url,
-				limit:       nextActionsTasksLimitPerProject,
+				ProjectName: projectName,
+				TasksCount:  0,
+				URL:         url,
+				Limit:       nextActionsTasksLimitPerProject,
+				Description: "Project has no active tasks",
 			})
 		}
 	}
