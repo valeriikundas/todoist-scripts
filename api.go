@@ -38,8 +38,8 @@ func GetIncorrectProjectsEndpoint(ctx context.Context) (*IncorrectResponse, erro
 }
 
 type IncorrectResponse struct {
-	TooMany []todoist.ResultUnit `json:"TooMany"`
-	Zero    []todoist.ResultUnit `json:"Zero"`
+	TooMany []todoist.IncorrectProjectSchema `json:"TooMany"`
+	Zero    []todoist.IncorrectProjectSchema `json:"Zero"`
 }
 
 //encore:api private method=POST path=/tasks/archive-older

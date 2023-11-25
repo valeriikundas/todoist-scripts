@@ -6,6 +6,7 @@ import (
 	"io"
 	"log"
 	"net/http"
+	"net/url"
 	"strings"
 	"time"
 
@@ -20,27 +21,35 @@ func NewTodoist(apiToken string) *Todoist {
 	return &Todoist{apiToken: apiToken}
 }
 
-func (t *Todoist) GetProjectsWithTooManyAndZeroTasks(limit int) (projectsWithTooManyTasks []ResultUnit, projectsWithZeroTasks []ResultUnit) {
+func (t *Todoist) GetProjectsWithTooManyAndZeroTasks(limit int) (projectsWithTooManyTasks []IncorrectProjectSchema, projectsWithZeroTasks []IncorrectProjectSchema) {
 	// TODO: maybe `get all sections` will be more useful
 	projects := t.getProjectList()
 	tasks := t.getTasks()
-	nextActionTasks := mapTasksToProjectAndFilterByLabel(projects, tasks)
-	projectsWithTooManyTasks, projectsWithZeroTasks = filterProjects(nextActionTasks, limit)
+	nextActionTasks := t.mapTasksToProjectAndFilterByLabel(projects, tasks)
+	projectsWithTooManyTasks, projectsWithZeroTasks = t.filterProjects(nextActionTasks, limit)
 	return projectsWithTooManyTasks, projectsWithZeroTasks
+}
+
+type IncorrectProjectSchema struct {
+	ProjectName string `json:"projectName"`
+	TasksCount  int    `json:"tasksCount"`
+	URL         string `json:"url"`
+	Limit       int    `json:"limit,omitempty"`
+	Description string `json:"description"`
 }
 
 func (t *Todoist) MoveOlderTasks(srcProjectName, dstProjectName string, oldThreshold time.Duration, dryRun bool) []Task {
 	projects := t.getProjectList()
 
-	srcProject, ok := findProjectByName(projects, srcProjectName)
+	srcProject, ok := t.findProjectByName(projects, srcProjectName)
 	if !ok {
 		log.Fatalf("did not find `%s` project\n", srcProjectName)
 	}
 
 	tasks := t.getProjectTasks(*srcProject)
-	oldTasks := filterOldTasks(tasks, oldThreshold)
+	oldTasks := t.filterOldTasks(tasks, oldThreshold)
 
-	dstProject, ok := findProjectByName(projects, dstProjectName)
+	dstProject, ok := t.findProjectByName(projects, dstProjectName)
 	if !ok {
 		log.Fatalf("did not find `%s` project\n", srcProjectName)
 	}
@@ -165,7 +174,7 @@ func (t *Todoist) moveTask(task_id string, project_id string, dryRun bool) {
 	commands := []Command{
 		{
 			Type: "item_move",
-			Args: X{
+			Args: MoveCommandArgs{
 				Id:        task_id,
 				ProjectID: project_id,
 			},
@@ -193,4 +202,105 @@ func (t *Todoist) moveTask(task_id string, project_id string, dryRun bool) {
 	}
 
 	log.Print(status)
+}
+
+func (t *Todoist) filterOldTasks(tasks []Task, duration time.Duration) []Task {
+	filteredTasks := make([]Task, 0, len(tasks))
+
+	for _, t := range tasks {
+		oldTaskThreshold := time.Now().Add(-duration)
+		if t.CreatedAt.Compare(oldTaskThreshold) == -1 {
+			filteredTasks = append(filteredTasks, t)
+		}
+	}
+	return filteredTasks
+}
+
+func (t *Todoist) findProjectByName(projects []Project, projectName string) (*Project, bool) {
+	for _, p := range projects {
+		if p.Name == projectName {
+			return &p, true
+		}
+	}
+	return nil, false
+}
+
+func (t *Todoist) filterProjects(nextActionTasks map[string][]Task, nextActionsTasksLimitPerProject int) ([]IncorrectProjectSchema, []IncorrectProjectSchema) {
+	// FIXME: split into 2 different filter functions
+	projectsWithTooManyTasks := []IncorrectProjectSchema{}
+	projectsWithZeroTasks := []IncorrectProjectSchema{}
+
+	for projectName, projectTasks := range nextActionTasks {
+		if len(projectTasks) > nextActionsTasksLimitPerProject {
+			filterLabel := "next_action"
+			url := t.getTasksURL(projectName, &filterLabel)
+			projectsWithTooManyTasks = append(projectsWithTooManyTasks, IncorrectProjectSchema{
+				ProjectName: projectName,
+				TasksCount:  len(projectTasks),
+				URL:         url,
+				Limit:       nextActionsTasksLimitPerProject,
+				Description: "Project has more active tasks that allowed",
+			})
+		}
+		if len(projectTasks) == 0 {
+			url := t.getTasksURL(projectName, nil)
+			projectsWithZeroTasks = append(projectsWithZeroTasks, IncorrectProjectSchema{
+				ProjectName: projectName,
+				TasksCount:  0,
+				URL:         url,
+				Limit:       nextActionsTasksLimitPerProject,
+				Description: "Project has no active tasks",
+			})
+		}
+	}
+
+	return projectsWithTooManyTasks, projectsWithZeroTasks
+}
+
+func (t *Todoist) mapTasksToProjectAndFilterByLabel(projects []Project, tasks []Task) map[string][]Task {
+	// FIXME: split into 2 steps: 1. filter tasks by label 2. map tasks to project
+	// FIXME: move tasks filter to API query
+	// FIXME: rewrite to map[projecID]Task
+	nextActionTasks := map[string][]Task{}
+	for _, task := range tasks {
+		projectName := t.getProjectNameByProjectID(task.ProjectID, projects)
+		if projectName == nil {
+			// FIXME: look into it
+			// log.Printf("nil projectName for projectid=%s taskName=%s\n", task.ProjectID, task.Content)
+			continue
+		}
+
+		contains := false
+		for _, l := range task.Labels {
+			if l == "next_action" {
+				contains = true
+				break
+			}
+		}
+		if contains {
+			nextActionTasks[*projectName] = append(nextActionTasks[*projectName], task)
+		}
+	}
+	return nextActionTasks
+}
+
+func (t *Todoist) getProjectNameByProjectID(projectID string, projects []Project) *string {
+	for _, p := range projects {
+		if p.ID == projectID {
+			return &p.Name
+		}
+	}
+	return nil
+}
+
+func (t *Todoist) getTasksURL(projectName string, label *string) string {
+	var query string
+	if label == nil {
+		query = fmt.Sprintf("#%s", projectName)
+	} else {
+		query = fmt.Sprintf("@%s&#%s", *label, projectName)
+	}
+	escapedQuery := url.QueryEscape(query)
+	url := fmt.Sprintf("https://todoist.com/app/search/%s", escapedQuery)
+	return url
 }
