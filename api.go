@@ -5,11 +5,14 @@ import (
 	"time"
 
 	"encore.dev/cron"
+	"github.com/valeriikundas/todoist-scripts/telegram"
 	todoist "github.com/valeriikundas/todoist-scripts/todoist_utils"
 )
 
 var secrets struct {
-	TodoistApiToken string
+	TodoistApiToken  string
+	TelegramApiToken string
+	TelegramUserID   string
 }
 
 // Send Telegram message with projects that has too many and zero active tasks.
@@ -34,6 +37,14 @@ func GetIncorrectProjectsEndpoint(ctx context.Context) (*IncorrectResponse, erro
 		TooMany: tooMany,
 		Zero:    zero,
 	}
+
+	tg := telegram.NewTelegram(secrets.TelegramApiToken)
+	message := todoist.PrettyOutput(tooMany, zero)
+	err := tg.Send(secrets.TelegramUserID, message)
+	if err != nil {
+		return nil, err
+	}
+
 	return &combined, nil
 }
 

@@ -1,29 +1,8 @@
 package todoist_utils
 
 import (
-	"io"
-	"log"
-	"os"
-	"strings"
 	"time"
 )
-
-func ReadApiTokenFromDotenv() string {
-	// FIXME: rewrite with `github.com/joho/godotenv`
-	file, err := os.Open(".env")
-	if err != nil {
-		log.Fatal(err)
-	}
-	b, err := io.ReadAll(file)
-	if err != nil {
-		log.Fatal(err)
-	}
-	text := string(b)
-
-	split := strings.Split(text, "=")
-	apiToken := split[1]
-	return apiToken
-}
 
 type TimeParser struct {
 	time.Time
