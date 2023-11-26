@@ -304,3 +304,17 @@ func (t *Todoist) getTasksURL(projectName string, label *string) string {
 	url := fmt.Sprintf("https://todoist.com/app/search/%s", escapedQuery)
 	return url
 }
+
+func (t *Todoist) PrettyOutput(projectsWithTooManyTasks []IncorrectProjectSchema, projectsWithZeroTasks []IncorrectProjectSchema) string {
+	builder := strings.Builder{}
+	builder.WriteString("projects with too many @next_action tasks:\n")
+	for _, p := range projectsWithTooManyTasks {
+		builder.WriteString(fmt.Sprintf("name: %s\n active tasks: %d\n link: %s\n\n", p.ProjectName, p.TasksCount, p.URL))
+	}
+	builder.WriteString("\nprojects without @next_action tasks:\n")
+	for _, p := range projectsWithZeroTasks {
+		builder.WriteString(fmt.Sprintf("name: %s\n active tasks: %d\n link: %s\n\n", p.ProjectName, p.TasksCount, p.URL))
+	}
+	message := builder.String()
+	return message
+}
