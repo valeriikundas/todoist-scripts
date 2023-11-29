@@ -3,6 +3,7 @@ package main
 import (
 	"log"
 	"os"
+	"strconv"
 
 	"github.com/joho/godotenv"
 	"github.com/valeriikundas/todoist-scripts/telegram"
@@ -19,7 +20,10 @@ func main() {
 
 	todoistApiToken := os.Getenv("TODOIST_API_TOKEN")
 	telegramApiToken := os.Getenv("TELEGRAM_API_TOKEN")
-	chatID := os.Getenv("TELEGRAM_USER_ID")
+	chatID, err := strconv.Atoi(os.Getenv("TELEGRAM_USER_ID"))
+	if err != nil {
+		log.Fatalf("error converting chatID to int, %v", err)
+	}
 
 	nextActionsTasksLimitPerProject := 3
 
