@@ -37,21 +37,21 @@ func initService() (*Service, error) {
 // Send Telegram message with projects that has too many and zero active tasks.
 var _ = cron.NewJob("incorrect-projects-notifier", cron.JobConfig{
 	Title:    "Send Telegram message with projects that has too many and zero active tasks",
-	Schedule: "0 8 * * *",
+	Schedule: "0 6 * * *",
 	Endpoint: GetIncorrectProjectsEndpoint,
 })
 
 // Move tasks from `Inbox` project to `inbox_archive` if they are older than 3 days.
 var _ = cron.NewJob("older-tasks-archivator", cron.JobConfig{
 	Title:    "Move tasks from `Inbox` project to `inbox_archive` if they are older than 3 days",
-	Schedule: "0 8 * * *",
+	Schedule: "0 6 * * *",
 	Endpoint: ArchiveOlderTasksEndpoint,
 })
 
 // Ask for Toggl time entry if it is empty.
 var _ = cron.NewJob("ask-for-toggl-entry", cron.JobConfig{
 	Title:    "Ask for Toggl time entry through Telegram if it is empty. Save to Toggl",
-	Schedule: "*/15 7-23 * * *",
+	Schedule: "*/15 5-21 * * *", // Every 15 minutes from 5-21 UTC
 	Endpoint: AssertRunningTogglEntryEndpoint,
 })
 
