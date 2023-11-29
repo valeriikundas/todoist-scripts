@@ -17,15 +17,19 @@ import (
 const telegramBotAPI = "https://api.telegram.org/bot"
 
 // fixme: generalize this function
-func AskForTogglEntryInTelegram(telegramApiToken string, telegramUserID int, TelegramGetUpdatesOffset *cache.IntKeyspace[int]) (string, error) {
+func AskForTogglEntryInTelegram(telegramApiToken string, telegramUserID int, TelegramUpdatesOffsetKeyspace *cache.IntKeyspace[int]) (string, error) {
 	updateURL := telegramBotAPI + telegramApiToken + "/getUpdates"
 
 	query := "no running Toggl entry. please fill in:"
 	sendMessage(telegramApiToken, telegramUserID, query)
 
-	offsetValue, err := TelegramGetUpdatesOffset.Get(context.TODO(), 0)
+	offsetValue, err := TelegramUpdatesOffsetKeyspace.Get(context.TODO(), 0)
 	if err != nil {
-		return "", err
+		if errors.Is(err, cache.Miss) {
+			offsetValue = 0
+		} else {
+			return "", err
+		}
 	}
 
 	// fixme: rewrite with telegram webhook
@@ -34,18 +38,16 @@ func AskForTogglEntryInTelegram(telegramApiToken string, telegramUserID int, Tel
 		return "", err
 	}
 
-	_, err = TelegramGetUpdatesOffset.Increment(context.TODO(), 0, 1)
+	_, err = TelegramUpdatesOffsetKeyspace.Increment(context.TODO(), 0, 1)
 	if err != nil {
 		return "", err
 	}
 
-	for i, update := range updates {
-		log.Printf("%d %#v", i, update)
-
+	for _, update := range updates {
 		replyText := fmt.Sprintf("Ok. Recorded: '%s' ", update.Message.Text)
 		sendMessage(telegramApiToken, update.Message.Chat.ID, replyText)
 
-		TelegramGetUpdatesOffset.Set(context.TODO(), 0, int64(update.ID+1))
+		TelegramUpdatesOffsetKeyspace.Set(context.TODO(), 0, int64(update.ID+1))
 
 		return update.Message.Text, nil
 	}
