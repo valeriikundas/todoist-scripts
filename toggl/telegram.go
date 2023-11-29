@@ -10,6 +10,7 @@ import (
 	"log"
 	"net/http"
 	"strconv"
+	"time"
 
 	"encore.dev/storage/cache"
 )
@@ -19,6 +20,8 @@ const telegramBotAPI = "https://api.telegram.org/bot"
 // fixme: generalize this function
 func AskForTogglEntryInTelegram(telegramApiToken string, telegramUserID int, TelegramUpdatesOffsetKeyspace *cache.IntKeyspace[int]) (string, error) {
 	updateURL := telegramBotAPI + telegramApiToken + "/getUpdates"
+
+	queryTime := time.Now().Unix()
 
 	query := "no running Toggl entry. please fill in:"
 	sendMessage(telegramApiToken, telegramUserID, query)
@@ -33,23 +36,34 @@ func AskForTogglEntryInTelegram(telegramApiToken string, telegramUserID int, Tel
 	}
 
 	// fixme: rewrite with telegram webhook
-	updates, err := getUpdates(updateURL, int(offsetValue))
-	if err != nil {
-		return "", err
-	}
 
-	_, err = TelegramUpdatesOffsetKeyspace.Increment(context.TODO(), 0, 1)
-	if err != nil {
-		return "", err
-	}
+	for receivedEntry := false; !receivedEntry; {
+		updates, err := getUpdates(updateURL, int(offsetValue))
+		if err != nil {
+			return "", err
+		}
 
-	for _, update := range updates {
-		replyText := fmt.Sprintf("Ok. Recorded: '%s' ", update.Message.Text)
-		sendMessage(telegramApiToken, update.Message.Chat.ID, replyText)
+		_, err = TelegramUpdatesOffsetKeyspace.Increment(context.TODO(), 0, 1)
+		if err != nil {
+			return "", err
+		}
 
-		TelegramUpdatesOffsetKeyspace.Set(context.TODO(), 0, int64(update.ID+1))
+		for _, update := range updates {
+			if update.Message.Date < int(queryTime) {
+				log.Printf("message `%s` was sent before interested. skipping...", update.Message.Text)
+				continue
+			}
 
-		return update.Message.Text, nil
+			replyText := fmt.Sprintf("Ok. Recorded: '%s' ", update.Message.Text)
+			sendMessage(telegramApiToken, update.Message.Chat.ID, replyText)
+
+			TelegramUpdatesOffsetKeyspace.Set(context.TODO(), 0, int64(update.ID+1))
+
+			receivedEntry = true
+			return update.Message.Text, nil
+		}
+
+		time.Sleep(time.Second)
 	}
 
 	return "", errors.New("no running Toggl entry and no Telegram reply")
@@ -113,6 +127,7 @@ type Update struct {
 type Message struct {
 	Chat Chat   `json:"chat"`
 	Text string `json:"text"`
+	Date int    `json:"date"`
 }
 
 type Chat struct {
