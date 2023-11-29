@@ -122,6 +122,7 @@ func (s *Service) AssertRunningTogglEntryEndpoint(ctx context.Context) error {
 	if err != nil {
 		return err
 	}
+	log.Printf("Toggl: isEmpty=%v timeEntry=%v", isEmpty, timeEntry)
 	if !isEmpty {
 		log.Printf("timeEntry is not empty, skipping")
 		return nil
@@ -132,6 +133,7 @@ func (s *Service) AssertRunningTogglEntryEndpoint(ctx context.Context) error {
 	if err != nil {
 		return err
 	}
+	log.Printf("Toggl: started time entry %v", timeEntry)
 
 	return nil
 }
