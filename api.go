@@ -51,7 +51,7 @@ var _ = cron.NewJob("older-tasks-archivator", cron.JobConfig{
 // Ask for Toggl time entry if it is empty.
 var _ = cron.NewJob("ask-for-toggl-entry", cron.JobConfig{
 	Title:    "Ask for Toggl time entry through Telegram if it is empty. Save to Toggl",
-	Every:    15 * cron.Minute,
+	Schedule: "*/15 7-23 * * *",
 	Endpoint: AssertRunningTogglEntryEndpoint,
 })
 
