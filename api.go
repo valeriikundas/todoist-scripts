@@ -49,9 +49,30 @@ var _ = cron.NewJob("older-tasks-archivator", cron.JobConfig{
 })
 
 // Ask for Toggl time entry if it is empty.
-var _ = cron.NewJob("ask-for-toggl-entry", cron.JobConfig{
+var _ = cron.NewJob("ask-for-toggl-entry-0", cron.JobConfig{
 	Title:    "Ask for Toggl time entry through Telegram if it is empty. Save to Toggl",
-	Schedule: "*/15 5-21 * * *", // Every 15 minutes from 5-21 UTC
+	Schedule: "0 5-21 * * *", // Every 15 minutes from 5-21 UTC
+	Endpoint: AssertRunningTogglEntryEndpoint,
+})
+
+// Ask for Toggl time entry if it is empty.
+var _ = cron.NewJob("ask-for-toggl-entry-15", cron.JobConfig{
+	Title:    "Ask for Toggl time entry through Telegram if it is empty. Save to Toggl",
+	Schedule: "15 5-21 * * *", // Every 15 minutes from 5-21 UTC
+	Endpoint: AssertRunningTogglEntryEndpoint,
+})
+
+// Ask for Toggl time entry if it is empty.
+var _ = cron.NewJob("ask-for-toggl-entry-30", cron.JobConfig{
+	Title:    "Ask for Toggl time entry through Telegram if it is empty. Save to Toggl",
+	Schedule: "30 5-21 * * *", // Every 15 minutes from 5-21 UTC
+	Endpoint: AssertRunningTogglEntryEndpoint,
+})
+
+// Ask for Toggl time entry if it is empty.
+var _ = cron.NewJob("ask-for-toggl-entry-45", cron.JobConfig{
+	Title:    "Ask for Toggl time entry through Telegram if it is empty. Save to Toggl",
+	Schedule: "45 5-21 * * *", // Every 15 minutes from 5-21 UTC
 	Endpoint: AssertRunningTogglEntryEndpoint,
 })
 
