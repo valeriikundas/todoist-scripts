@@ -2,12 +2,16 @@ package toggl
 
 import (
 	"encoding/json"
+	"fmt"
 	"io"
 	"log"
 	"net/http"
+	"strconv"
+	"time"
 
 	"encore.dev/storage/cache"
 	"github.com/valeriikundas/todoist-scripts/telegram"
+	"github.com/valeriikundas/todoist-scripts/utils"
 )
 
 func AskForTogglEntryIfEmpty(togglApiToken string, telegramApiToken string, telegramUserID int, TelegramGetUpdatesOffset *cache.IntKeyspace[int]) (isEmpty bool, textTimeEntry string, err error) {
@@ -28,6 +32,61 @@ func AskForTogglEntryIfEmpty(togglApiToken string, telegramApiToken string, tele
 	}
 
 	return false, "", nil
+}
+
+func (t *Toggl) StartTimeEntry(timeEntry string, workspaceIDStr string) error {
+	method := http.MethodPost
+	url := fmt.Sprintf("https://api.track.toggl.com/api/v9/workspaces/%s/time_entries", workspaceIDStr)
+	username, password := t.apiToken, "api_token"
+
+	timeNow := time.Now().UTC().Format("2006-01-02T15:04:05Z")
+
+	workspaceID, err := strconv.ParseInt(workspaceIDStr, 10, 64)
+	if err != nil {
+		return err
+	}
+
+	data := CreateTimeEntryRequest{
+		Description: timeEntry,
+		CreatedWith: "gtd-scripts",
+		Duration:    -1,
+		// Tags:        []string{},
+		// ProjectID:   0,
+		Start:       timeNow,
+		WorkspaceID: workspaceID,
+	}
+
+	resp, code, err := utils.DoHttpRequest(utils.RequestArgs{
+		Method:   method,
+		Url:      url,
+		Data:     data,
+		Username: username,
+		Password: password,
+	})
+	if err != nil {
+		return err
+	}
+	if code != http.StatusOK {
+		log.Printf("got status code %d", code)
+		log.Printf("resp = %#v", resp)
+		return fmt.Errorf("got status code %d, resp=%s", code, resp)
+	}
+
+	return nil
+}
+
+type CreateTimeEntryRequest struct {
+	Description string   `json:"description"`
+	CreatedWith string   `json:"created_with"`
+	Duration    int      `json:"duration"`
+	Tags        []string `json:"tags,omitempty"`
+	ProjectID   int64    `json:"project_id,omitempty"`
+	Start       string   `json:"start"`
+	WorkspaceID int64    `json:"workspace_id"`
+}
+
+type CreateTimeEntryResponse struct {
+	ID string `json:"id"`
 }
 
 func NotifyIfNoRunningTogglEntry(togglApiToken string, telegramApiToken string, telegramUserID int) error {
@@ -76,7 +135,6 @@ func (t Toggl) getCurrentTimeEntry() (*TimeEntry, error) {
 	if err != nil {
 		return nil, err
 	}
-	log.Print(resp.StatusCode)
 	defer resp.Body.Close()
 
 	b, err := io.ReadAll(resp.Body)

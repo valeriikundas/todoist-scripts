@@ -19,7 +19,8 @@ var secrets struct {
 	TelegramApiToken string
 	TelegramUserID   string
 
-	TogglApiToken string
+	TogglApiToken    string
+	TogglWorkspaceID string
 }
 
 //encore:service
@@ -122,10 +123,15 @@ func (s *Service) AssertRunningTogglEntryEndpoint(ctx context.Context) error {
 		return err
 	}
 	if !isEmpty {
+		log.Printf("timeEntry is not empty, skipping")
 		return nil
 	}
 
-	// todo: send `timeEntry` to track toggl to create new time entry
-	log.Printf("recorded timeEntry=%v", timeEntry)
+	togglClient := toggl.NewToggl(secrets.TogglApiToken)
+	err = togglClient.StartTimeEntry(timeEntry, secrets.TogglWorkspaceID)
+	if err != nil {
+		return err
+	}
+
 	return nil
 }
