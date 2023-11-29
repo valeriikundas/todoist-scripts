@@ -16,11 +16,9 @@ func AskForTogglEntryIfEmpty(togglApiToken string, telegramApiToken string, tele
 	if err != nil {
 		return false, "", err
 	}
-	log.Printf("%#v", timeEntry)
 
 	if timeEntry == nil {
 		log.Print("No Toggl time entry found")
-		log.Print("Please start a Toggl time entry")
 
 		entry, err := AskForTogglEntryInTelegram(telegramApiToken, telegramUserID, TelegramGetUpdatesOffset)
 		if err != nil {

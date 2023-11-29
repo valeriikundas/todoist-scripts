@@ -10,31 +10,23 @@ import (
 	"log"
 	"net/http"
 	"strconv"
-	"time"
 
 	"encore.dev/storage/cache"
 )
 
 const telegramBotAPI = "https://api.telegram.org/bot"
 
-// var telegramGetUpdatesOffset = 0
-
 // fixme: generalize this function
 func AskForTogglEntryInTelegram(telegramApiToken string, telegramUserID int, TelegramGetUpdatesOffset *cache.IntKeyspace[int]) (string, error) {
 	updateURL := telegramBotAPI + telegramApiToken + "/getUpdates"
 
-	// log.Println("offset ", telegramGetUpdatesOffset)
-
 	query := "no running Toggl entry. please fill in:"
 	sendMessage(telegramApiToken, telegramUserID, query)
-
-	log.Println("time before ", time.Now())
 
 	offsetValue, err := TelegramGetUpdatesOffset.Get(context.TODO(), 0)
 	if err != nil {
 		return "", err
 	}
-	log.Printf("offset=%v", offsetValue)
 
 	// fixme: rewrite with telegram webhook
 	updates, err := getUpdates(updateURL, int(offsetValue))
@@ -42,16 +34,13 @@ func AskForTogglEntryInTelegram(telegramApiToken string, telegramUserID int, Tel
 		return "", err
 	}
 
-	log.Printf("updates=%v", updates)
-
-	// telegramGetUpdatesOffset++
 	_, err = TelegramGetUpdatesOffset.Increment(context.TODO(), 0, 1)
 	if err != nil {
 		return "", err
 	}
 
 	for i, update := range updates {
-		log.Printf("%d %v", i, update)
+		log.Printf("%d %#v", i, update)
 
 		replyText := fmt.Sprintf("Ok. Recorded: '%s' ", update.Message.Text)
 		sendMessage(telegramApiToken, update.Message.Chat.ID, replyText)
@@ -61,14 +50,11 @@ func AskForTogglEntryInTelegram(telegramApiToken string, telegramUserID int, Tel
 		return update.Message.Text, nil
 	}
 
-	log.Println("time after ", time.Now())
-
 	return "", errors.New("no running Toggl entry and no Telegram reply")
 }
 
 func getUpdates(url string, offset int) ([]Update, error) {
 	fullUrl := url + "?offset=" + strconv.Itoa(offset) + "&allowed_updates=message&timeout=120"
-	log.Printf("fullUrl=%s", fullUrl)
 	resp, err := http.Get(fullUrl)
 	if err != nil {
 		return nil, err
