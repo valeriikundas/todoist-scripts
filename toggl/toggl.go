@@ -9,12 +9,11 @@ import (
 	"strconv"
 	"time"
 
-	"encore.dev/storage/cache"
 	"github.com/valeriikundas/todoist-scripts/telegram"
 	"github.com/valeriikundas/todoist-scripts/utils"
 )
 
-func AskForTogglEntryIfEmpty(togglApiToken string, telegramApiToken string, telegramUserID int, TelegramGetUpdatesOffset *cache.IntKeyspace[int]) (isEmpty bool, textTimeEntry string, err error) {
+func AskForTogglEntryIfEmpty(togglApiToken string, telegramApiToken string, telegramUserID int) (isEmpty bool, textTimeEntry string, err error) {
 	toggl := NewToggl(togglApiToken)
 	timeEntry, err := toggl.getCurrentTimeEntry()
 	if err != nil {
@@ -26,7 +25,7 @@ func AskForTogglEntryIfEmpty(togglApiToken string, telegramApiToken string, tele
 	}
 
 	log.Print("No Toggl time entry found")
-	entry, err := AskForTogglEntryInTelegram(telegramApiToken, telegramUserID, TelegramGetUpdatesOffset)
+	entry, err := AskForTogglEntryInTelegram(telegramApiToken, telegramUserID)
 	if err != nil {
 		return true, "", err
 	}

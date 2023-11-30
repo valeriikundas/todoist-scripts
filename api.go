@@ -8,7 +8,6 @@ import (
 	"time"
 
 	"encore.dev/cron"
-	"encore.dev/storage/cache"
 	"github.com/valeriikundas/todoist-scripts/telegram"
 	todoist "github.com/valeriikundas/todoist-scripts/todoist_utils"
 	"github.com/valeriikundas/todoist-scripts/toggl"
@@ -54,17 +53,6 @@ var _ = cron.NewJob("ask-for-toggl-entry", cron.JobConfig{
 	Title:    "Ask for Toggl time entry through Telegram if it is empty. Save to Toggl",
 	Schedule: "*/15 5-21 * * *", // Every 15 minutes from 5-21 UTC
 	Endpoint: AssertRunningTogglEntryEndpoint,
-})
-
-var CacheCluster = cache.NewCluster("cache-cluster", cache.ClusterConfig{
-	// EvictionPolicy tells Redis how to evict keys when the cache reaches
-	// its memory limit. For typical cache use cases, cache.AllKeysLRU is a good default.
-	EvictionPolicy: cache.AllKeysLRU,
-})
-
-var TelegramGetUpdatesOffset = cache.NewIntKeyspace[int](CacheCluster, cache.KeyspaceConfig{
-	KeyPattern:    "offset",
-	DefaultExpiry: nil,
 })
 
 //encore:api private method=GET path=/projects/incorrect
@@ -119,7 +107,7 @@ func (s *Service) AssertRunningTogglEntryEndpoint(ctx context.Context) (*AssertT
 		return nil, err
 	}
 
-	isEmpty, timeEntry, err := toggl.AskForTogglEntryIfEmpty(secrets.TogglApiToken, secrets.TelegramApiToken, telegramUserID, TelegramGetUpdatesOffset)
+	isEmpty, timeEntry, err := toggl.AskForTogglEntryIfEmpty(secrets.TogglApiToken, secrets.TelegramApiToken, telegramUserID)
 	if err != nil {
 		if errors.Is(err, &toggl.TelegramTimeoutError{}) {
 			return &AssertToggleEntryResponse{
@@ -130,7 +118,6 @@ func (s *Service) AssertRunningTogglEntryEndpoint(ctx context.Context) (*AssertT
 		return nil, err
 	}
 	log.Printf("Toggl: isEmpty=%v timeEntry=%v", isEmpty, timeEntry)
-	
 	if !isEmpty {
 		log.Printf("timeEntry is not empty, skipping")
 		return &AssertToggleEntryResponse{

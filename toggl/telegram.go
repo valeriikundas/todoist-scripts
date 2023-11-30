@@ -2,23 +2,19 @@ package toggl
 
 import (
 	"bytes"
-	"context"
 	"encoding/json"
-	"errors"
 	"fmt"
 	"io"
 	"log"
 	"net/http"
 	"strconv"
 	"time"
-
-	"encore.dev/storage/cache"
 )
 
 const telegramBotAPI = "https://api.telegram.org/bot"
 
 // fixme: generalize this function
-func AskForTogglEntryInTelegram(telegramApiToken string, telegramUserID int, TelegramUpdatesOffsetKeyspace *cache.IntKeyspace[int]) (string, error) {
+func AskForTogglEntryInTelegram(telegramApiToken string, telegramUserID int) (string, error) {
 	updateURL := telegramBotAPI + telegramApiToken + "/getUpdates"
 
 	queryTime := time.Now().Unix()
@@ -26,19 +22,12 @@ func AskForTogglEntryInTelegram(telegramApiToken string, telegramUserID int, Tel
 	query := "no running Toggl entry. please fill in:"
 	sendMessage(telegramApiToken, telegramUserID, query)
 
-	offsetValue, err := TelegramUpdatesOffsetKeyspace.Get(context.TODO(), 0)
-	if err != nil {
-		if errors.Is(err, cache.Miss) {
-			offsetValue = 0
-		} else {
-			return "", err
-		}
-	}
+	offsetValue := int64(0)
 
 	// todo: #9 rewrite with telegram webhook
 
 	replyChan := make(chan ReplyResult, 1)
-	go telegramWaitForReply(updateURL, offsetValue, TelegramUpdatesOffsetKeyspace, queryTime, telegramApiToken, replyChan)
+	go telegramWaitForReply(updateURL, offsetValue, queryTime, telegramApiToken, replyChan)
 
 	select {
 	case res := <-replyChan:
@@ -48,14 +37,9 @@ func AskForTogglEntryInTelegram(telegramApiToken string, telegramUserID int, Tel
 	}
 }
 
-func telegramWaitForReply(updateURL string, offsetValue int64, TelegramUpdatesOffsetKeyspace *cache.IntKeyspace[int], queryTime int64, telegramApiToken string, result chan ReplyResult) {
+func telegramWaitForReply(updateURL string, offsetValue int64, queryTime int64, telegramApiToken string, result chan ReplyResult) {
 	for receivedEntry := false; !receivedEntry; {
 		updates, err := getUpdates(updateURL, int(offsetValue))
-		if err != nil {
-			result <- ReplyResult{"", err}
-		}
-
-		_, err = TelegramUpdatesOffsetKeyspace.Increment(context.TODO(), 0, 1)
 		if err != nil {
 			result <- ReplyResult{"", err}
 		}
@@ -68,8 +52,6 @@ func telegramWaitForReply(updateURL string, offsetValue int64, TelegramUpdatesOf
 
 			replyText := fmt.Sprintf("Ok. Recorded: '%s' ", update.Message.Text)
 			sendMessage(telegramApiToken, update.Message.Chat.ID, replyText)
-
-			TelegramUpdatesOffsetKeyspace.Set(context.TODO(), 0, int64(update.ID+1))
 
 			receivedEntry = true
 			result <- ReplyResult{update.Message.Text, nil}
