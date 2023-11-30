@@ -21,17 +21,17 @@ func AskForTogglEntryIfEmpty(togglApiToken string, telegramApiToken string, tele
 		return false, "", err
 	}
 
-	if timeEntry == nil {
-		log.Print("No Toggl time entry found")
-
-		entry, err := AskForTogglEntryInTelegram(telegramApiToken, telegramUserID, TelegramGetUpdatesOffset)
-		if err != nil {
-			return true, "", err
-		}
-		return true, entry, nil
+	if timeEntry != nil {
+		return false, "", nil
 	}
 
-	return false, "", nil
+	log.Print("No Toggl time entry found")
+	entry, err := AskForTogglEntryInTelegram(telegramApiToken, telegramUserID, TelegramGetUpdatesOffset)
+	if err != nil {
+		return true, "", err
+	}
+	return true, entry, nil
+
 }
 
 func (t *Toggl) StartTimeEntry(timeEntry string, workspaceIDStr string) error {

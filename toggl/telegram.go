@@ -35,17 +35,29 @@ func AskForTogglEntryInTelegram(telegramApiToken string, telegramUserID int, Tel
 		}
 	}
 
-	// fixme: rewrite with telegram webhook
+	// todo: #9 rewrite with telegram webhook
 
+	replyChan := make(chan ReplyResult, 1)
+	go telegramWaitForReply(updateURL, offsetValue, TelegramUpdatesOffsetKeyspace, queryTime, telegramApiToken, replyChan)
+
+	select {
+	case res := <-replyChan:
+		return res.message, res.err
+	case <-time.After(time.Minute):
+		return "", &TelegramTimeoutError{}
+	}
+}
+
+func telegramWaitForReply(updateURL string, offsetValue int64, TelegramUpdatesOffsetKeyspace *cache.IntKeyspace[int], queryTime int64, telegramApiToken string, result chan ReplyResult) {
 	for receivedEntry := false; !receivedEntry; {
 		updates, err := getUpdates(updateURL, int(offsetValue))
 		if err != nil {
-			return "", err
+			result <- ReplyResult{"", err}
 		}
 
 		_, err = TelegramUpdatesOffsetKeyspace.Increment(context.TODO(), 0, 1)
 		if err != nil {
-			return "", err
+			result <- ReplyResult{"", err}
 		}
 
 		for _, update := range updates {
@@ -60,13 +72,16 @@ func AskForTogglEntryInTelegram(telegramApiToken string, telegramUserID int, Tel
 			TelegramUpdatesOffsetKeyspace.Set(context.TODO(), 0, int64(update.ID+1))
 
 			receivedEntry = true
-			return update.Message.Text, nil
+			result <- ReplyResult{update.Message.Text, nil}
 		}
 
 		time.Sleep(time.Second)
 	}
+}
 
-	return "", errors.New("no running Toggl entry and no Telegram reply")
+type ReplyResult struct {
+	message string
+	err     error
 }
 
 func getUpdates(url string, offset int) ([]Update, error) {

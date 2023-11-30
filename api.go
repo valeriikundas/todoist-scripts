@@ -2,6 +2,7 @@ package api
 
 import (
 	"context"
+	"errors"
 	"log"
 	"strconv"
 	"time"
@@ -112,28 +113,54 @@ type MoveOlderTasksResponse struct {
 // FIXME: refactor log.Fatal to returning errors to callers in whole project
 
 //encore:api private method=POST path=/toggl/assertRunningEntry
-func (s *Service) AssertRunningTogglEntryEndpoint(ctx context.Context) error {
+func (s *Service) AssertRunningTogglEntryEndpoint(ctx context.Context) (*AssertToggleEntryResponse, error) {
 	telegramUserID, err := strconv.Atoi(secrets.TelegramUserID)
 	if err != nil {
-		return err
+		return nil, err
 	}
 
 	isEmpty, timeEntry, err := toggl.AskForTogglEntryIfEmpty(secrets.TogglApiToken, secrets.TelegramApiToken, telegramUserID, TelegramGetUpdatesOffset)
 	if err != nil {
-		return err
+		if errors.Is(err, &toggl.TelegramTimeoutError{}) {
+			return &AssertToggleEntryResponse{
+				Reason: ReasonTimeout,
+			}, nil
+		}
+
+		return nil, err
 	}
 	log.Printf("Toggl: isEmpty=%v timeEntry=%v", isEmpty, timeEntry)
+	
 	if !isEmpty {
 		log.Printf("timeEntry is not empty, skipping")
-		return nil
+		return &AssertToggleEntryResponse{
+			Reason:    ReasonRunning,
+			TimeEntry: "",
+		}, nil
 	}
 
 	togglClient := toggl.NewToggl(secrets.TogglApiToken)
 	err = togglClient.StartTimeEntry(timeEntry, secrets.TogglWorkspaceID)
 	if err != nil {
-		return err
+		return nil, err
 	}
-	log.Printf("Toggl: started time entry %v", timeEntry)
 
-	return nil
+	log.Printf("Toggl: started time entry %v", timeEntry)
+	return &AssertToggleEntryResponse{
+		Reason:    ReasonUserStarted,
+		TimeEntry: timeEntry,
+	}, nil
 }
+
+type AssertToggleEntryResponse struct {
+	Reason    Reason `json:"reason"`
+	TimeEntry string `json:"time_entry"`
+}
+
+type Reason string
+
+const (
+	ReasonRunning     Reason = "running"
+	ReasonUserStarted Reason = "user-started"
+	ReasonTimeout     Reason = "timeout"
+)
