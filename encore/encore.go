@@ -3,7 +3,7 @@ package api
 import (
 	"context"
 	"errors"
-	"github.com/valeriikundas/todoist-scripts/telegram"
+	api "github.com/valeriikundas/todoist-scripts/api"
 	"log"
 	"strconv"
 	"time"
@@ -56,15 +56,11 @@ var _ = cron.NewJob("ask-for-toggl-entry", cron.JobConfig{
 })
 
 //encore:api private method=GET path=/projects/incorrect
-func (s *Service) GetIncorrectProjectsEndpoint(ctx context.Context) (*IncorrectResponse, error) {
+func (s *Service) GetIncorrectProjectsEndpoint(ctx context.Context) (*api.IncorrectResponse, error) {
 	todoistApiToken := secrets.TodoistApiToken
 	telegramApiToken := secrets.TelegramApiToken
-	return GetIncorrectProjects(todoistApiToken, telegramApiToken)
-}
-
-type IncorrectResponse struct {
-	TooMany []todoist.IncorrectProjectSchema `json:"TooMany"`
-	Zero    []todoist.IncorrectProjectSchema `json:"Zero"`
+	telegramUserID := secrets.TelegramUserID
+	return api.GetIncorrectProjects(todoistApiToken, telegramApiToken, telegramUserID)
 }
 
 //encore:api private method=POST path=/tasks/archive-older
@@ -134,28 +130,3 @@ const (
 	ReasonUserStarted Reason = "user-started"
 	ReasonTimeout     Reason = "timeout"
 )
-
-// todo: will be moved
-
-func GetIncorrectProjects(todoistApiToken string, telegramApiToken string) (*IncorrectResponse, error) {
-	todoist := todoist.NewTodoist(todoistApiToken)
-	tooMany, zero := todoist.GetProjectsWithTooManyAndZeroTasks(3)
-	combined := IncorrectResponse{
-		TooMany: tooMany,
-		Zero:    zero,
-	}
-
-	tg := telegram.NewTelegram(telegramApiToken)
-	message := todoist.PrettyOutput(tooMany, zero)
-	telegramUserID, err := strconv.Atoi(secrets.TelegramUserID)
-	if err != nil {
-		return nil, err
-	}
-
-	err = tg.Send(telegramUserID, message)
-	if err != nil {
-		return nil, err
-	}
-
-	return &combined, nil
-}
