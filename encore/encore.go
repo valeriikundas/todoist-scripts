@@ -3,12 +3,12 @@ package api
 import (
 	"context"
 	"errors"
+	"github.com/valeriikundas/todoist-scripts/telegram"
 	"log"
 	"strconv"
 	"time"
 
 	"encore.dev/cron"
-	"github.com/valeriikundas/todoist-scripts/telegram"
 	todoist "github.com/valeriikundas/todoist-scripts/todoist_utils"
 	"github.com/valeriikundas/todoist-scripts/toggl"
 )
@@ -57,26 +57,9 @@ var _ = cron.NewJob("ask-for-toggl-entry", cron.JobConfig{
 
 //encore:api private method=GET path=/projects/incorrect
 func (s *Service) GetIncorrectProjectsEndpoint(ctx context.Context) (*IncorrectResponse, error) {
-	todoist := todoist.NewTodoist(secrets.TodoistApiToken)
-	tooMany, zero := todoist.GetProjectsWithTooManyAndZeroTasks(3)
-	combined := IncorrectResponse{
-		TooMany: tooMany,
-		Zero:    zero,
-	}
-
-	tg := telegram.NewTelegram(secrets.TelegramApiToken)
-	message := todoist.PrettyOutput(tooMany, zero)
-	telegramUserID, err := strconv.Atoi(secrets.TelegramUserID)
-	if err != nil {
-		return nil, err
-	}
-
-	err = tg.Send(telegramUserID, message)
-	if err != nil {
-		return nil, err
-	}
-
-	return &combined, nil
+	todoistApiToken := secrets.TodoistApiToken
+	telegramApiToken := secrets.TelegramApiToken
+	return GetIncorrectProjects(todoistApiToken, telegramApiToken)
 }
 
 type IncorrectResponse struct {
@@ -151,3 +134,28 @@ const (
 	ReasonUserStarted Reason = "user-started"
 	ReasonTimeout     Reason = "timeout"
 )
+
+// todo: will be moved
+
+func GetIncorrectProjects(todoistApiToken string, telegramApiToken string) (*IncorrectResponse, error) {
+	todoist := todoist.NewTodoist(todoistApiToken)
+	tooMany, zero := todoist.GetProjectsWithTooManyAndZeroTasks(3)
+	combined := IncorrectResponse{
+		TooMany: tooMany,
+		Zero:    zero,
+	}
+
+	tg := telegram.NewTelegram(telegramApiToken)
+	message := todoist.PrettyOutput(tooMany, zero)
+	telegramUserID, err := strconv.Atoi(secrets.TelegramUserID)
+	if err != nil {
+		return nil, err
+	}
+
+	err = tg.Send(telegramUserID, message)
+	if err != nil {
+		return nil, err
+	}
+
+	return &combined, nil
+}
