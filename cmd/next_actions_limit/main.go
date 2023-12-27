@@ -7,7 +7,7 @@ import (
 
 	"github.com/joho/godotenv"
 	"github.com/valeriikundas/todoist-scripts/telegram"
-	"github.com/valeriikundas/todoist-scripts/todoist_utils"
+	"github.com/valeriikundas/todoist-scripts/todoist"
 )
 
 func main() {
@@ -27,11 +27,11 @@ func main() {
 
 	nextActionsTasksLimitPerProject := 3
 
-	todoist := todoist_utils.NewTodoist(todoistApiToken)
-	projectsWithTooManyTasks, projectsWithZeroTasks := todoist.GetProjectsWithTooManyAndZeroTasks(nextActionsTasksLimitPerProject)
+	todoistClient := todoist.NewClient(todoistApiToken)
+	projectsWithTooManyTasks, projectsWithZeroTasks := todoistClient.GetProjectsWithTooManyAndZeroTasks(nextActionsTasksLimitPerProject)
 	log.Printf("projectsWithTooManyTasks=%+v projectsWithZeroTasks=%+v", projectsWithTooManyTasks, projectsWithZeroTasks)
 
-	message := todoist.PrettyOutput(projectsWithTooManyTasks, projectsWithZeroTasks)
+	message := todoistClient.PrettyOutput(projectsWithTooManyTasks, projectsWithZeroTasks)
 
 	tg := telegram.NewTelegram(telegramApiToken)
 	err = tg.Send(chatID, message)

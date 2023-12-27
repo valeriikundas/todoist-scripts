@@ -2,15 +2,9 @@ package api
 
 import (
 	"context"
-	"errors"
+	"encore.dev/cron"
 	api "github.com/valeriikundas/todoist-scripts/api"
 	"log"
-	"strconv"
-	"time"
-
-	"encore.dev/cron"
-	todoist "github.com/valeriikundas/todoist-scripts/todoist_utils"
-	"github.com/valeriikundas/todoist-scripts/toggl"
 )
 
 var secrets struct {
@@ -57,76 +51,22 @@ var _ = cron.NewJob("ask-for-toggl-entry", cron.JobConfig{
 
 //encore:api private method=GET path=/projects/incorrect
 func (s *Service) GetIncorrectProjectsEndpoint(ctx context.Context) (*api.IncorrectResponse, error) {
-	todoistApiToken := secrets.TodoistApiToken
-	telegramApiToken := secrets.TelegramApiToken
-	telegramUserID := secrets.TelegramUserID
-	return api.GetIncorrectProjects(todoistApiToken, telegramApiToken, telegramUserID)
+	return api.GetIncorrectProjects(secrets.TodoistApiToken, secrets.TelegramApiToken, secrets.TelegramUserID)
 }
 
 //encore:api private method=POST path=/tasks/archive-older
-func (s *Service) ArchiveOlderTasksEndpoint(ctx context.Context) (*MoveOlderTasksResponse, error) {
-	todoist := todoist.NewTodoist(secrets.TodoistApiToken)
-	srcProjectName, dstProjectName, oldThreshold, dryRun := "Inbox", "inbox_archive", time.Hour*24*3, false
-	tasks := todoist.MoveOlderTasks(srcProjectName, dstProjectName, oldThreshold, dryRun)
-	return &MoveOlderTasksResponse{
-		Tasks: tasks,
-	}, nil
-}
-
-type MoveOlderTasksResponse struct {
-	Tasks []todoist.Task `json:"tasks"`
+func (s *Service) ArchiveOlderTasksEndpoint(ctx context.Context) (*api.MoveOlderTasksResponse, error) {
+	return api.ArchiveOlderTasks(secrets.TodoistApiToken)
 }
 
 // FIXME: refactor log.Fatal to returning errors to callers in whole project
 
 //encore:api private method=POST path=/toggl/assertRunningEntry
-func (s *Service) AssertRunningTogglEntryEndpoint(ctx context.Context) (*AssertToggleEntryResponse, error) {
-	telegramUserID, err := strconv.Atoi(secrets.TelegramUserID)
-	if err != nil {
-		return nil, err
-	}
-
-	isEmpty, timeEntry, err := toggl.AskForTogglEntryIfEmpty(secrets.TogglApiToken, secrets.TelegramApiToken, telegramUserID)
-	if err != nil {
-		if errors.Is(err, &toggl.TelegramTimeoutError{}) {
-			return &AssertToggleEntryResponse{
-				Reason: ReasonTimeout,
-			}, nil
-		}
-
-		return nil, err
-	}
-	log.Printf("Toggl: isEmpty=%v timeEntry=%v", isEmpty, timeEntry)
-	if !isEmpty {
-		log.Printf("timeEntry is not empty, skipping")
-		return &AssertToggleEntryResponse{
-			Reason:    ReasonRunning,
-			TimeEntry: "",
-		}, nil
-	}
-
-	togglClient := toggl.NewToggl(secrets.TogglApiToken)
-	err = togglClient.StartTimeEntry(timeEntry, secrets.TogglWorkspaceID)
-	if err != nil {
-		return nil, err
-	}
-
-	log.Printf("Toggl: started time entry %v", timeEntry)
-	return &AssertToggleEntryResponse{
-		Reason:    ReasonUserStarted,
-		TimeEntry: timeEntry,
-	}, nil
+func (s *Service) AssertRunningTogglEntryEndpoint(ctx context.Context) (*api.AssertToggleEntryResponse, error) {
+	return api.AssertRunningTogglEntry(
+		secrets.TogglApiToken,
+		secrets.TogglWorkspaceID,
+		secrets.TelegramApiToken,
+		secrets.TelegramUserID,
+	)
 }
-
-type AssertToggleEntryResponse struct {
-	Reason    Reason `json:"reason"`
-	TimeEntry string `json:"time_entry"`
-}
-
-type Reason string
-
-const (
-	ReasonRunning     Reason = "running"
-	ReasonUserStarted Reason = "user-started"
-	ReasonTimeout     Reason = "timeout"
-)

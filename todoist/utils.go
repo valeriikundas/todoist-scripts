@@ -1,4 +1,4 @@
-package todoist_utils
+package todoist
 
 import (
 	"time"
