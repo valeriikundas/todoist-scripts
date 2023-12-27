@@ -35,16 +35,18 @@ func NewCdkStack(scope constructs.Construct, id string, props *CdkStackProps) aw
 		&awscdk.SecretsManagerSecretOptions{},
 	)
 
+	// todo: roles
+
 	// lambdas
 	limitDoNowTasksFunction := awslambda.NewFunction(
 		stack,
 		jsii.String("limit-do-now-tasks"),
 		&awslambda.FunctionProps{
 			Code: awslambda.Code_FromAsset(
-				jsii.String("./api.go"),
+				jsii.String("./api/"),
 				&awss3assets.AssetOptions{},
 			),
-			Handler: nil,
+			Handler: jsii.String("lambda/limit-do-now-tasks.go"),
 			Runtime: awslambda.Runtime_GO_1_X(),
 		},
 	)
