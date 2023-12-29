@@ -10,6 +10,8 @@ import (
 	"github.com/aws/aws-cdk-go/awscdklambdagoalpha/v2"
 	"github.com/aws/constructs-go/constructs/v10"
 	"github.com/aws/jsii-runtime-go"
+	"github.com/joho/godotenv"
+	"os"
 )
 
 type CdkStackProps struct {
@@ -39,6 +41,7 @@ func NewCdkStack(scope constructs.Construct, id string, props *CdkStackProps) aw
 			Runtime:      awslambda.Runtime_GO_1_X(),
 			Entry:        jsii.String("lambdas/limit-do-now-tasks.go"),
 			LogRetention: awslogs.RetentionDays_THREE_DAYS,
+			Timeout:      awscdk.Duration_Seconds(jsii.Number(30)),
 			//todo: rewrite with this one when it works
 			//InitialPolicy: &awsiam.NewPolicyStatement(&awsiam.PolicyStatementProps{}).
 		},
@@ -84,13 +87,18 @@ func NewCdkStack(scope constructs.Construct, id string, props *CdkStackProps) aw
 func main() {
 	defer jsii.Close()
 
-	app := awscdk.NewApp(nil)
+	err := godotenv.Load(".env")
+	if err != nil {
+		panic(err)
+	}
+
+	app := awscdk.NewApp(&awscdk.AppProps{})
 
 	NewCdkStack(app, "gtd-scripts", &CdkStackProps{
 		awscdk.StackProps{
 			Env: &awscdk.Environment{
-				Account: jsii.String("***REMOVED***"),
-				Region:  jsii.String("eu-central-1"),
+				Account: jsii.String(os.Getenv("AWS_ACCOUNT_ID")),
+				Region:  jsii.String(os.Getenv("AWS_REGION")),
 			},
 		},
 	})

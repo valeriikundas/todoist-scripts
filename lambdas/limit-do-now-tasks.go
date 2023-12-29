@@ -45,6 +45,13 @@ func handler(ctx context.Context, request events.APIGatewayProxyRequest) (events
 	}
 
 	resp, err := api.GetIncorrectProjects(secrets.TodoistApiToken, secrets.TelegramApiToken, secrets.TelegramUserID)
+	if err != nil {
+		return events.APIGatewayProxyResponse{
+			StatusCode: 500,
+			Body:       "",
+		}, errors.Wrap(err, "failed to get incorrect projects")
+	}
+
 	b, err := json.Marshal(resp)
 	if err != nil {
 		return events.APIGatewayProxyResponse{
