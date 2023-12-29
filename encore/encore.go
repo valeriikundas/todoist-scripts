@@ -56,7 +56,7 @@ func (s *Service) GetIncorrectProjectsEndpoint(ctx context.Context) (*api.Incorr
 
 //encore:api private method=POST path=/tasks/archive-older
 func (s *Service) ArchiveOlderTasksEndpoint(ctx context.Context) (*api.MoveOlderTasksResponse, error) {
-	return api.ArchiveOlderTasks(secrets.TodoistApiToken)
+	return api.ArchiveOlderInboxTasks(secrets.TodoistApiToken)
 }
 
 // FIXME: refactor log.Fatal to returning errors to callers in whole project

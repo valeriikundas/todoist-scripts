@@ -38,7 +38,7 @@ type IncorrectResponse struct {
 	Zero    []todoist.IncorrectProjectSchema `json:"Zero"`
 }
 
-func ArchiveOlderTasks(todoistApiToken string) (*MoveOlderTasksResponse, error) {
+func ArchiveOlderInboxTasks(todoistApiToken string) (*MoveOlderTasksResponse, error) {
 	todoist := todoist.NewClient(todoistApiToken)
 	dstProjectName, oldThreshold, dryRun := "inbox_archive", time.Hour*24*3, false
 	tasks := todoist.MoveOlderTasks("Inbox", dstProjectName, oldThreshold, dryRun)

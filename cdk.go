@@ -26,6 +26,7 @@ func NewCdkStack(scope constructs.Construct, id string, props *CdkStackProps) aw
 	}
 	stack := awscdk.NewStack(scope, &id, &stackProps)
 
+	// secrets
 	secretsARN := os.Getenv("AWS_SECRETS_FULL_ARN")
 	_ = awssecretsmanager.Secret_FromSecretCompleteArn(
 		stack,
@@ -33,6 +34,7 @@ func NewCdkStack(scope constructs.Construct, id string, props *CdkStackProps) aw
 		jsii.String(secretsARN),
 	)
 
+	// policy statements
 	readSecretsPolicyStatement := awsiam.NewPolicyStatement(&awsiam.PolicyStatementProps{
 		Actions:   jsii.Strings("secretsmanager:GetSecretValue"),
 		Resources: jsii.Strings(secretsARN),
@@ -45,24 +47,33 @@ func NewCdkStack(scope constructs.Construct, id string, props *CdkStackProps) aw
 		&awscdklambdagoalpha.GoFunctionProps{
 			LogRetention:  awslogs.RetentionDays_THREE_DAYS,
 			Timeout:       awscdk.Duration_Seconds(jsii.Number(30)),
-			Entry:         jsii.String("lambdas/limit-do-now-tasks.go"),
+			Entry:         jsii.String("lambdas/limit-do-now-tasks/main.go"),
+			Runtime:       awslambda.Runtime_GO_1_X(),
+			InitialPolicy: &[]awsiam.PolicyStatement{readSecretsPolicyStatement},
+		},
+	)
+	archiveOlderInboxTasks := awscdklambdagoalpha.NewGoFunction(
+		stack,
+		jsii.String("archive-older-inbox-tasks"),
+		&awscdklambdagoalpha.GoFunctionProps{
+			LogRetention:  awslogs.RetentionDays_THREE_DAYS,
+			Timeout:       awscdk.Duration_Seconds(jsii.Number(30)),
+			Entry:         jsii.String("lambdas/archive-older-inbox-tasks/main.go"),
 			Runtime:       awslambda.Runtime_GO_1_X(),
 			InitialPolicy: &[]awsiam.PolicyStatement{readSecretsPolicyStatement},
 		},
 	)
 
-	// todo: write other lambda functions in cdk
-
 	// scheduling
+	scheduleDaily8AM := awsevents.Schedule_Cron(&awsevents.CronOptions{
+		Hour:   jsii.String("8"),
+		Minute: jsii.String("0"),
+	})
 	_ = awsevents.NewRule(
 		stack,
 		jsii.String("run-limit-do-now-tasks-at-8am-daily"),
 		&awsevents.RuleProps{
-			Description: nil,
-			Schedule: awsevents.Schedule_Cron(&awsevents.CronOptions{
-				Hour:   jsii.String("8"),
-				Minute: jsii.String("0"),
-			}),
+			Schedule: scheduleDaily8AM,
 			Targets: &[]awsevents.IRuleTarget{
 				awseventstargets.NewLambdaFunction(
 					limitDoNowTasksFunction,
@@ -71,7 +82,16 @@ func NewCdkStack(scope constructs.Construct, id string, props *CdkStackProps) aw
 			},
 		},
 	)
-	// todo: add cdk for other lambda functions
+
+	awsevents.NewRule(stack, jsii.String("archive-older-inbox-tasks-daily"), &awsevents.RuleProps{
+		Schedule: scheduleDaily8AM,
+		Targets: &[]awsevents.IRuleTarget{
+			awseventstargets.NewLambdaFunction(
+				archiveOlderInboxTasks,
+				&awseventstargets.LambdaFunctionProps{},
+			),
+		},
+	})
 
 	return stack
 }
