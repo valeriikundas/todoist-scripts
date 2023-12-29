@@ -7,6 +7,7 @@ import (
 	"github.com/aws/aws-cdk-go/awscdk/v2/awsiam"
 	"github.com/aws/aws-cdk-go/awscdk/v2/awslambda"
 	"github.com/aws/aws-cdk-go/awscdk/v2/awslogs"
+	"github.com/aws/aws-cdk-go/awscdk/v2/awssecretsmanager"
 	"github.com/aws/aws-cdk-go/awscdklambdagoalpha/v2"
 	"github.com/aws/constructs-go/constructs/v10"
 	"github.com/aws/jsii-runtime-go"
@@ -25,40 +26,31 @@ func NewCdkStack(scope constructs.Construct, id string, props *CdkStackProps) aw
 	}
 	stack := awscdk.NewStack(scope, &id, &stackProps)
 
-	// secrets
-	_ = awscdk.SecretValue_SecretsManager(
+	secretsARN := os.Getenv("AWS_SECRETS_FULL_ARN")
+	_ = awssecretsmanager.Secret_FromSecretCompleteArn(
+		stack,
 		jsii.String("gtd-secrets"),
-		&awscdk.SecretsManagerSecretOptions{},
+		jsii.String(secretsARN),
 	)
 
-	// todo: roles
+	readSecretsPolicyStatement := awsiam.NewPolicyStatement(&awsiam.PolicyStatementProps{
+		Actions:   jsii.Strings("secretsmanager:GetSecretValue"),
+		Resources: jsii.Strings(secretsARN),
+	})
 
 	// lambdas
 	limitDoNowTasksFunction := awscdklambdagoalpha.NewGoFunction(
 		stack,
 		jsii.String("limit-do-now-tasks"),
 		&awscdklambdagoalpha.GoFunctionProps{
-			Runtime:      awslambda.Runtime_GO_1_X(),
-			Entry:        jsii.String("lambdas/limit-do-now-tasks.go"),
-			LogRetention: awslogs.RetentionDays_THREE_DAYS,
-			Timeout:      awscdk.Duration_Seconds(jsii.Number(30)),
-			//todo: rewrite with this one when it works
-			//InitialPolicy: &awsiam.NewPolicyStatement(&awsiam.PolicyStatementProps{}).
+			LogRetention:  awslogs.RetentionDays_THREE_DAYS,
+			Timeout:       awscdk.Duration_Seconds(jsii.Number(30)),
+			Entry:         jsii.String("lambdas/limit-do-now-tasks.go"),
+			Runtime:       awslambda.Runtime_GO_1_X(),
+			InitialPolicy: &[]awsiam.PolicyStatement{readSecretsPolicyStatement},
 		},
 	)
 
-	//secrets := awssecretsmanager.Secret_FromSecretNameV2(stack, jsii.String("gtd-secrets"), jsii.String("gtd-secrets"))
-
-	limitDoNowTasksFunction.AddToRolePolicy(awsiam.NewPolicyStatement(&awsiam.PolicyStatementProps{
-		Actions: jsii.Strings("secretsmanager:GetSecretValue"),
-		Resources: jsii.Strings(
-			"***REMOVED***",
-
-			//"***REMOVED***",
-			//"arn:aws:secretsmanager:eu-central-1:***REMOVED***:secret:gtd-secrets"
-			//*secrets.SecretArn(),
-		),
-	}))
 	// todo: write other lambda functions in cdk
 
 	// scheduling
