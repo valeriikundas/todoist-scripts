@@ -5,7 +5,7 @@ import (
 	"github.com/aws/aws-cdk-go/awscdk/v2/awsevents"
 	"github.com/aws/aws-cdk-go/awscdk/v2/awseventstargets"
 	"github.com/aws/aws-cdk-go/awscdk/v2/awslambda"
-	"github.com/aws/aws-cdk-go/awscdk/v2/awss3assets"
+	"github.com/aws/aws-cdk-go/awscdklambdagoalpha/v2"
 	"github.com/aws/constructs-go/constructs/v10"
 	"github.com/aws/jsii-runtime-go"
 )
@@ -38,15 +38,10 @@ func NewCdkStack(scope constructs.Construct, id string, props *CdkStackProps) aw
 	// todo: roles
 
 	// lambdas
-	limitDoNowTasksFunction := awslambda.NewFunction(
-		stack,
-		jsii.String("limit-do-now-tasks"),
-		&awslambda.FunctionProps{
-			Code:    awslambda.AssetCode_FromAsset(jsii.String("lambdas/"), &awss3assets.AssetOptions{}),
-			Handler: jsii.String("limit-do-now-tasks"),
-			Runtime: awslambda.Runtime_GO_1_X(),
-		},
-	)
+	limitDoNowTasksFunction := awscdklambdagoalpha.NewGoFunction(stack, jsii.String("limit-do-now-tasks"), &awscdklambdagoalpha.GoFunctionProps{
+		Runtime: awslambda.Runtime_GO_1_X(),
+		Entry:   jsii.String("lambdas/limit-do-now-tasks.go"),
+	})
 	// todo: write other lambda functions in cdk
 
 	// scheduling

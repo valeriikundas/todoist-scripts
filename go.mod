@@ -3,7 +3,8 @@ module github.com/valeriikundas/todoist-scripts
 go 1.21.4
 
 require (
-	github.com/aws/aws-cdk-go/awscdk/v2 v2.116.1
+	github.com/aws/aws-cdk-go/awscdk/v2 v2.117.0
+	github.com/aws/aws-cdk-go/awscdklambdagoalpha/v2 v2.117.0-alpha.0
 	github.com/aws/aws-lambda-go v1.43.0
 	github.com/aws/aws-sdk-go v1.49.9
 	github.com/aws/constructs-go/constructs/v10 v10.3.0
