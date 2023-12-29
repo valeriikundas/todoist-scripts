@@ -9,7 +9,10 @@ import (
 	"github.com/aws/aws-sdk-go/aws/session"
 	"github.com/aws/aws-sdk-go/service/secretsmanager"
 	"github.com/aws/jsii-runtime-go"
+	"github.com/pkg/errors"
 	"github.com/valeriikundas/todoist-scripts/api"
+	"log"
+	"os"
 )
 
 func handler(ctx context.Context, request events.APIGatewayProxyRequest) (events.APIGatewayProxyResponse, error) {
@@ -18,48 +21,38 @@ func handler(ctx context.Context, request events.APIGatewayProxyRequest) (events
 	session := session.Must(session.NewSession(config))
 	secretsManager := secretsmanager.New(session, &aws.Config{})
 
-	todoistApiTokenSecretValueOutput, err := secretsManager.GetSecretValue(&secretsmanager.GetSecretValueInput{
-		SecretId: jsii.String("TodoistApiToken"),
+	secretsOutput, err := secretsManager.GetSecretValue(&secretsmanager.GetSecretValueInput{
+		SecretId: jsii.String("gtd-secrets"),
 	})
 	if err != nil {
 		return events.APIGatewayProxyResponse{
 			StatusCode: 500,
 			Body:       "",
-		}, err
+		}, errors.Wrap(err, "failed to get secret value")
 	}
 
-	telegramApiTokenSecretValueOutput, err := secretsManager.GetSecretValue(&secretsmanager.GetSecretValueInput{
-		SecretId: jsii.String("TelegramApiToken"),
-	})
+	var secrets struct {
+		TodoistApiToken  string
+		TelegramApiToken string
+		TelegramUserID   string
+	}
+	err = json.Unmarshal([]byte(*secretsOutput.SecretString), &secrets)
 	if err != nil {
 		return events.APIGatewayProxyResponse{
 			StatusCode: 500,
 			Body:       "",
-		}, err
+		}, errors.Wrap(err, "failed to unmarshal secret")
 	}
 
-	telegramUserIDSecretValueOutput, err := secretsManager.GetSecretValue(&secretsmanager.GetSecretValueInput{
-		SecretId: jsii.String("TelegramUserID"),
-	})
-	if err != nil {
-		return events.APIGatewayProxyResponse{
-			StatusCode: 500,
-			Body:       "",
-		}, err
-	}
-
-	todoistApiToken := todoistApiTokenSecretValueOutput.String()
-	telegramApiToken := telegramApiTokenSecretValueOutput.String()
-	telegramUserID := telegramUserIDSecretValueOutput.String()
-
-	resp, err := api.GetIncorrectProjects(todoistApiToken, telegramApiToken, telegramUserID)
+	resp, err := api.GetIncorrectProjects(secrets.TodoistApiToken, secrets.TelegramApiToken, secrets.TelegramUserID)
 	b, err := json.Marshal(resp)
 	if err != nil {
 		return events.APIGatewayProxyResponse{
 			StatusCode: 500,
-			Body:       err.Error(),
-		}, err
+			Body:       "",
+		}, errors.Wrap(err, "failed to marshal response")
 	}
+
 	return events.APIGatewayProxyResponse{
 		StatusCode: 200,
 		Body:       string(b),
@@ -67,5 +60,14 @@ func handler(ctx context.Context, request events.APIGatewayProxyRequest) (events
 }
 
 func main() {
+	runtimeApi := os.Getenv("AWS_LAMBDA_RUNTIME_API")
+	if runtimeApi == "" {
+		resp, err := handler(context.TODO(), events.APIGatewayProxyRequest{})
+		if err != nil {
+			log.Fatal(err)
+		}
+		log.Print(resp)
+	}
+
 	lambda.Start(handler)
 }
