@@ -7,6 +7,7 @@ import (
 	"log"
 	"net/http"
 	"net/url"
+	"slices"
 	"strings"
 	"time"
 
@@ -31,7 +32,12 @@ func (t *Client) GetProjectsWithTooManyAndZeroTasks(limit int) (projectsWithTooM
 	projectsWithTooManyTasks = t.filterProjects(nextActionTasks, limit)
 
 	projectsWithZeroTasks = make([]IncorrectProjectSchema, 0, 100)
+	excludeFromZeroProjects := []string{"Inbox", "gtd", "inbox_archive"}
 	for _, project := range projects {
+		if slices.Contains(excludeFromZeroProjects, project.Name) {
+			continue
+		}
+
 		_, ok := nextActionTasks[project.Name]
 		if !ok {
 			projectsWithZeroTasks = append(projectsWithZeroTasks, IncorrectProjectSchema{
@@ -43,7 +49,6 @@ func (t *Client) GetProjectsWithTooManyAndZeroTasks(limit int) (projectsWithTooM
 			})
 		}
 	}
-	log.Printf("without tasks: %+v", projectsWithZeroTasks)
 
 	return projectsWithTooManyTasks, projectsWithZeroTasks
 }
