@@ -1,4 +1,4 @@
-package todoist_utils
+package todoist
 
 import (
 	"encoding/json"
@@ -7,26 +7,49 @@ import (
 	"log"
 	"net/http"
 	"net/url"
+	"slices"
 	"strings"
 	"time"
 
 	"github.com/google/uuid"
 )
 
-type Todoist struct {
+type Client struct {
 	apiToken string
 }
 
-func NewTodoist(apiToken string) *Todoist {
-	return &Todoist{apiToken: apiToken}
+func NewClient(apiToken string) *Client {
+	return &Client{apiToken: apiToken}
 }
 
-func (t *Todoist) GetProjectsWithTooManyAndZeroTasks(limit int) (projectsWithTooManyTasks []IncorrectProjectSchema, projectsWithZeroTasks []IncorrectProjectSchema) {
+func (t *Client) GetProjectsWithTooManyAndZeroTasks(limit int) (projectsWithTooManyTasks []IncorrectProjectSchema, projectsWithZeroTasks []IncorrectProjectSchema) {
 	// TODO: maybe `get all sections` will be more useful
 	projects := t.getProjectList()
+	// fixme: getTasks() fetches too many tasks, filter in some way, can fetch by label straight away or fetch by project
 	tasks := t.getTasks()
 	nextActionTasks := t.mapTasksToProjectAndFilterByLabel(projects, tasks)
-	projectsWithTooManyTasks, projectsWithZeroTasks = t.filterProjects(nextActionTasks, limit)
+
+	projectsWithTooManyTasks = t.filterProjects(nextActionTasks, limit)
+
+	projectsWithZeroTasks = make([]IncorrectProjectSchema, 0, 100)
+	excludeFromZeroProjects := []string{"Inbox", "gtd", "inbox_archive"}
+	for _, project := range projects {
+		if slices.Contains(excludeFromZeroProjects, project.Name) {
+			continue
+		}
+
+		_, ok := nextActionTasks[project.Name]
+		if !ok {
+			projectsWithZeroTasks = append(projectsWithZeroTasks, IncorrectProjectSchema{
+				ProjectName: project.Name,
+				TasksCount:  0,
+				URL:         project.Url,
+				Limit:       0,
+				Description: "no active tasks on this project",
+			})
+		}
+	}
+
 	return projectsWithTooManyTasks, projectsWithZeroTasks
 }
 
@@ -38,11 +61,12 @@ type IncorrectProjectSchema struct {
 	Description string `json:"description"`
 }
 
-func (t *Todoist) MoveOlderTasks(srcProjectName, dstProjectName string, oldThreshold time.Duration, dryRun bool) []Task {
+func (t *Client) MoveOlderTasks(srcProjectName, dstProjectName string, oldThreshold time.Duration, dryRun bool) []Task {
 	projects := t.getProjectList()
 
 	srcProject, ok := t.findProjectByName(projects, srcProjectName)
 	if !ok {
+		// fixme: return errors instead of log.Fatal in all project
 		log.Fatalf("did not find `%s` project\n", srcProjectName)
 	}
 
@@ -58,7 +82,7 @@ func (t *Todoist) MoveOlderTasks(srcProjectName, dstProjectName string, oldThres
 	return oldTasks
 }
 
-func (t *Todoist) getProjectList() []Project {
+func (t *Client) getProjectList() []Project {
 	url := "https://api.todoist.com/rest/v2/projects"
 
 	b := t.doTodoistRequest(url)
@@ -72,7 +96,7 @@ func (t *Todoist) getProjectList() []Project {
 	return projects
 }
 
-func (t *Todoist) getTasks() []Task {
+func (t *Client) getTasks() []Task {
 	url := "https://api.todoist.com/rest/v2/tasks"
 	b := t.doTodoistRequest(url)
 
@@ -85,7 +109,7 @@ func (t *Todoist) getTasks() []Task {
 	return tasks
 }
 
-func (t *Todoist) getProjectTasks(project Project) []Task {
+func (t *Client) getProjectTasks(project Project) []Task {
 	projectID := project.ID
 	url := fmt.Sprintf("https://api.todoist.com/rest/v2/tasks?project_id=%s", projectID)
 	b := t.doTodoistRequest(url)
@@ -99,14 +123,14 @@ func (t *Todoist) getProjectTasks(project Project) []Task {
 	return tasks
 }
 
-func (t *Todoist) moveTasks(tasks []Task, projectID string, dryRun bool) {
+func (t *Client) moveTasks(tasks []Task, projectID string, dryRun bool) {
 	// FIXME: rewrite with single todoist sync api request
 	for _, task := range tasks {
 		t.moveTask(task.ID, projectID, dryRun)
 	}
 }
 
-func (t *Todoist) doTodoistRequest(url string) []byte {
+func (t *Client) doTodoistRequest(url string) []byte {
 	req, err := http.NewRequest(http.MethodGet, url, nil)
 	if err != nil {
 		log.Fatal(err)
@@ -130,7 +154,7 @@ func (t *Todoist) doTodoistRequest(url string) []byte {
 	return b
 }
 
-func (t *Todoist) doTodoistPostRequest(method string, url string, body io.Reader) []byte {
+func (t *Client) doTodoistPostRequest(method string, url string, body io.Reader) []byte {
 	headerKey, headerValue := "Authorization", fmt.Sprintf("Bearer %s", t.apiToken)
 
 	req, err := http.NewRequest(method, url, body)
@@ -163,7 +187,7 @@ func (t *Todoist) doTodoistPostRequest(method string, url string, body io.Reader
 	return resultBytes
 }
 
-func (t *Todoist) moveTask(task_id string, project_id string, dryRun bool) {
+func (t *Client) moveTask(task_id string, project_id string, dryRun bool) {
 	logMessage := fmt.Sprintf("moving task_id=%s to project_id=%s\n", task_id, project_id)
 	if dryRun {
 		log.Printf("dry run: %v", logMessage)
@@ -204,7 +228,7 @@ func (t *Todoist) moveTask(task_id string, project_id string, dryRun bool) {
 	log.Print(status)
 }
 
-func (t *Todoist) filterOldTasks(tasks []Task, duration time.Duration) []Task {
+func (t *Client) filterOldTasks(tasks []Task, duration time.Duration) []Task {
 	filteredTasks := make([]Task, 0, len(tasks))
 
 	for _, t := range tasks {
@@ -216,7 +240,7 @@ func (t *Todoist) filterOldTasks(tasks []Task, duration time.Duration) []Task {
 	return filteredTasks
 }
 
-func (t *Todoist) findProjectByName(projects []Project, projectName string) (*Project, bool) {
+func (t *Client) findProjectByName(projects []Project, projectName string) (*Project, bool) {
 	for _, p := range projects {
 		if p.Name == projectName {
 			return &p, true
@@ -225,10 +249,8 @@ func (t *Todoist) findProjectByName(projects []Project, projectName string) (*Pr
 	return nil, false
 }
 
-func (t *Todoist) filterProjects(nextActionTasks map[string][]Task, nextActionsTasksLimitPerProject int) ([]IncorrectProjectSchema, []IncorrectProjectSchema) {
-	// FIXME: split into 2 different filter functions
-	projectsWithTooManyTasks := []IncorrectProjectSchema{}
-	projectsWithZeroTasks := []IncorrectProjectSchema{}
+func (t *Client) filterProjects(nextActionTasks map[string][]Task, nextActionsTasksLimitPerProject int) []IncorrectProjectSchema {
+	projectsWithTooManyTasks := make([]IncorrectProjectSchema, 0, 10)
 
 	for projectName, projectTasks := range nextActionTasks {
 		if len(projectTasks) > nextActionsTasksLimitPerProject {
@@ -242,22 +264,12 @@ func (t *Todoist) filterProjects(nextActionTasks map[string][]Task, nextActionsT
 				Description: "Project has more active tasks that allowed",
 			})
 		}
-		if len(projectTasks) == 0 {
-			url := t.getTasksURL(projectName, nil)
-			projectsWithZeroTasks = append(projectsWithZeroTasks, IncorrectProjectSchema{
-				ProjectName: projectName,
-				TasksCount:  0,
-				URL:         url,
-				Limit:       nextActionsTasksLimitPerProject,
-				Description: "Project has no active tasks",
-			})
-		}
 	}
 
-	return projectsWithTooManyTasks, projectsWithZeroTasks
+	return projectsWithTooManyTasks
 }
 
-func (t *Todoist) mapTasksToProjectAndFilterByLabel(projects []Project, tasks []Task) map[string][]Task {
+func (t *Client) mapTasksToProjectAndFilterByLabel(projects []Project, tasks []Task) map[string][]Task {
 	// FIXME: split into 2 steps: 1. filter tasks by label 2. map tasks to project
 	// FIXME: move tasks filter to API query
 	// FIXME: rewrite to map[projecID]Task
@@ -284,7 +296,7 @@ func (t *Todoist) mapTasksToProjectAndFilterByLabel(projects []Project, tasks []
 	return nextActionTasks
 }
 
-func (t *Todoist) getProjectNameByProjectID(projectID string, projects []Project) *string {
+func (t *Client) getProjectNameByProjectID(projectID string, projects []Project) *string {
 	for _, p := range projects {
 		if p.ID == projectID {
 			return &p.Name
@@ -293,7 +305,7 @@ func (t *Todoist) getProjectNameByProjectID(projectID string, projects []Project
 	return nil
 }
 
-func (t *Todoist) getTasksURL(projectName string, label *string) string {
+func (t *Client) getTasksURL(projectName string, label *string) string {
 	var query string
 	if label == nil {
 		query = fmt.Sprintf("#%s", projectName)
@@ -305,7 +317,7 @@ func (t *Todoist) getTasksURL(projectName string, label *string) string {
 	return url
 }
 
-func (t *Todoist) PrettyOutput(projectsWithTooManyTasks []IncorrectProjectSchema, projectsWithZeroTasks []IncorrectProjectSchema) string {
+func (t *Client) PrettyOutput(projectsWithTooManyTasks []IncorrectProjectSchema, projectsWithZeroTasks []IncorrectProjectSchema) string {
 	builder := strings.Builder{}
 	builder.WriteString("projects with too many @next_action tasks:\n")
 	for _, p := range projectsWithTooManyTasks {
@@ -313,7 +325,7 @@ func (t *Todoist) PrettyOutput(projectsWithTooManyTasks []IncorrectProjectSchema
 	}
 	builder.WriteString("\nprojects without @next_action tasks:\n")
 	for _, p := range projectsWithZeroTasks {
-		builder.WriteString(fmt.Sprintf("name: %s\n active tasks: %d\n link: %s\n\n", p.ProjectName, p.TasksCount, p.URL))
+		builder.WriteString(fmt.Sprintf("name: %s\n link: %s\n\n", p.ProjectName, p.URL))
 	}
 	message := builder.String()
 	return message

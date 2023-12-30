@@ -6,7 +6,7 @@ import (
 	"time"
 
 	"github.com/joho/godotenv"
-	todoist "github.com/valeriikundas/todoist-scripts/todoist_utils"
+	todoist "github.com/valeriikundas/todoist-scripts/todoist"
 )
 
 func main() {
@@ -24,6 +24,6 @@ func main() {
 	oldThreshold := time.Hour * 24 * 3
 	dryRun := false
 
-	todoist := todoist.NewTodoist(todoistApiToken)
-	todoist.MoveOlderTasks(srcProjectName, dstProjectName, oldThreshold, dryRun)
+	todoistClient := todoist.NewClient(todoistApiToken)
+	todoistClient.MoveOlderTasks(srcProjectName, dstProjectName, oldThreshold, dryRun)
 }

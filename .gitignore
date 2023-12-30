@@ -3,3 +3,6 @@
 encore.gen.go
 encore.gen.cue
 experimental/
+.idea/
+.DS_Store
+cdk.out/
