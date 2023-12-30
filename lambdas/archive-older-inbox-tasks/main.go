@@ -18,8 +18,10 @@ import (
 // todo: refactor shared code between lambdas
 
 func handler(ctx context.Context, request events.APIGatewayProxyRequest) (events.APIGatewayProxyResponse, error) {
+	log.SetFlags(log.LstdFlags | log.Llongfile)
+
 	region := "eu-central-1"
-	config := aws.NewConfig().WithRegion(region)
+	config := aws.NewConfig().WithRegion(region).WithCredentialsChainVerboseErrors(true)
 	session := session.Must(session.NewSession(config))
 	secretsManager := secretsmanager.New(session, &aws.Config{})
 

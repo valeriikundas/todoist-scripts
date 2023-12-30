@@ -24,9 +24,27 @@ func NewClient(apiToken string) *Client {
 func (t *Client) GetProjectsWithTooManyAndZeroTasks(limit int) (projectsWithTooManyTasks []IncorrectProjectSchema, projectsWithZeroTasks []IncorrectProjectSchema) {
 	// TODO: maybe `get all sections` will be more useful
 	projects := t.getProjectList()
+	// fixme: getTasks() fetches too many tasks, filter in some way, can fetch by label straight away or fetch by project
 	tasks := t.getTasks()
 	nextActionTasks := t.mapTasksToProjectAndFilterByLabel(projects, tasks)
-	projectsWithTooManyTasks, projectsWithZeroTasks = t.filterProjects(nextActionTasks, limit)
+
+	projectsWithTooManyTasks = t.filterProjects(nextActionTasks, limit)
+
+	projectsWithZeroTasks = make([]IncorrectProjectSchema, 0, 100)
+	for _, project := range projects {
+		_, ok := nextActionTasks[project.Name]
+		if !ok {
+			projectsWithZeroTasks = append(projectsWithZeroTasks, IncorrectProjectSchema{
+				ProjectName: project.Name,
+				TasksCount:  0,
+				URL:         project.Url,
+				Limit:       0,
+				Description: "no active tasks on this project",
+			})
+		}
+	}
+	log.Printf("without tasks: %+v", projectsWithZeroTasks)
+
 	return projectsWithTooManyTasks, projectsWithZeroTasks
 }
 
@@ -226,10 +244,8 @@ func (t *Client) findProjectByName(projects []Project, projectName string) (*Pro
 	return nil, false
 }
 
-func (t *Client) filterProjects(nextActionTasks map[string][]Task, nextActionsTasksLimitPerProject int) ([]IncorrectProjectSchema, []IncorrectProjectSchema) {
-	// FIXME: split into 2 different filter functions
-	projectsWithTooManyTasks := []IncorrectProjectSchema{}
-	projectsWithZeroTasks := []IncorrectProjectSchema{}
+func (t *Client) filterProjects(nextActionTasks map[string][]Task, nextActionsTasksLimitPerProject int) []IncorrectProjectSchema {
+	projectsWithTooManyTasks := make([]IncorrectProjectSchema, 0, 10)
 
 	for projectName, projectTasks := range nextActionTasks {
 		if len(projectTasks) > nextActionsTasksLimitPerProject {
@@ -243,19 +259,9 @@ func (t *Client) filterProjects(nextActionTasks map[string][]Task, nextActionsTa
 				Description: "Project has more active tasks that allowed",
 			})
 		}
-		if len(projectTasks) == 0 {
-			url := t.getTasksURL(projectName, nil)
-			projectsWithZeroTasks = append(projectsWithZeroTasks, IncorrectProjectSchema{
-				ProjectName: projectName,
-				TasksCount:  0,
-				URL:         url,
-				Limit:       nextActionsTasksLimitPerProject,
-				Description: "Project has no active tasks",
-			})
-		}
 	}
 
-	return projectsWithTooManyTasks, projectsWithZeroTasks
+	return projectsWithTooManyTasks
 }
 
 func (t *Client) mapTasksToProjectAndFilterByLabel(projects []Project, tasks []Task) map[string][]Task {
@@ -314,7 +320,7 @@ func (t *Client) PrettyOutput(projectsWithTooManyTasks []IncorrectProjectSchema,
 	}
 	builder.WriteString("\nprojects without @next_action tasks:\n")
 	for _, p := range projectsWithZeroTasks {
-		builder.WriteString(fmt.Sprintf("name: %s\n active tasks: %d\n link: %s\n\n", p.ProjectName, p.TasksCount, p.URL))
+		builder.WriteString(fmt.Sprintf("name: %s\n link: %s\n\n", p.ProjectName, p.URL))
 	}
 	message := builder.String()
 	return message

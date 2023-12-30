@@ -10,7 +10,7 @@ import (
 	"time"
 )
 
-func GetIncorrectProjects(todoistApiToken string, telegramApiToken string, telegramUserIDString string) (*IncorrectResponse, error) {
+func SendReportAboutIncorrectProjectsToTelegram(todoistApiToken string, telegramApiToken string, telegramUserIDString string) (*IncorrectResponse, error) {
 	todoistClient := todoist.NewClient(todoistApiToken)
 	tooMany, zero := todoistClient.GetProjectsWithTooManyAndZeroTasks(3)
 	combined := IncorrectResponse{

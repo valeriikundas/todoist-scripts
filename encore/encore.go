@@ -51,7 +51,7 @@ var _ = cron.NewJob("ask-for-toggl-entry", cron.JobConfig{
 
 //encore:api private method=GET path=/projects/incorrect
 func (s *Service) GetIncorrectProjectsEndpoint(ctx context.Context) (*api.IncorrectResponse, error) {
-	return api.GetIncorrectProjects(secrets.TodoistApiToken, secrets.TelegramApiToken, secrets.TelegramUserID)
+	return api.SendReportAboutIncorrectProjectsToTelegram(secrets.TodoistApiToken, secrets.TelegramApiToken, secrets.TelegramUserID)
 }
 
 //encore:api private method=POST path=/tasks/archive-older

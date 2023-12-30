@@ -16,8 +16,10 @@ import (
 )
 
 func handler(ctx context.Context, request events.APIGatewayProxyRequest) (events.APIGatewayProxyResponse, error) {
+	log.SetFlags(log.LstdFlags | log.Llongfile)
+
 	region := "eu-central-1"
-	config := aws.NewConfig().WithRegion(region)
+	config := aws.NewConfig().WithRegion(region).WithCredentialsChainVerboseErrors(true)
 	session := session.Must(session.NewSession(config))
 	secretsManager := secretsmanager.New(session, &aws.Config{})
 
@@ -44,7 +46,7 @@ func handler(ctx context.Context, request events.APIGatewayProxyRequest) (events
 		}, errors.Wrap(err, "failed to unmarshal secret")
 	}
 
-	resp, err := api.GetIncorrectProjects(secrets.TodoistApiToken, secrets.TelegramApiToken, secrets.TelegramUserID)
+	resp, err := api.SendReportAboutIncorrectProjectsToTelegram(secrets.TodoistApiToken, secrets.TelegramApiToken, secrets.TelegramUserID)
 	if err != nil {
 		return events.APIGatewayProxyResponse{
 			StatusCode: 500,
@@ -74,6 +76,7 @@ func main() {
 			log.Fatal(err)
 		}
 		log.Print(resp)
+		return
 	}
 
 	lambda.Start(handler)
