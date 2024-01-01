@@ -66,7 +66,7 @@ func NewCdkStack(scope constructs.Construct, id string, props *CdkStackProps) aw
 
 	// scheduling
 	scheduleDaily8AM := awsevents.Schedule_Cron(&awsevents.CronOptions{
-		Hour:   jsii.String("8"),
+		Hour:   jsii.String("6"),
 		Minute: jsii.String("0"),
 	})
 	_ = awsevents.NewRule(
