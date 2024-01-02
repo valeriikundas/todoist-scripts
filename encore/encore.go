@@ -3,7 +3,7 @@ package api
 import (
 	"context"
 	"encore.dev/cron"
-	api "github.com/valeriikundas/todoist-scripts/api"
+	"github.com/valeriikundas/todoist-scripts/api"
 	"log"
 )
 
@@ -15,6 +15,9 @@ var secrets struct {
 
 	TogglApiToken    string
 	TogglWorkspaceID string
+
+	// todo: can be rewritten with https://encore.dev/docs/develop/config
+	ExcludeFromZeroProjectsList []string
 }
 
 //encore:service
@@ -36,7 +39,7 @@ var _ = cron.NewJob("incorrect-projects-notifier", cron.JobConfig{
 })
 
 // Move tasks from `Inbox` project to `inbox_archive` if they are older than 3 days.
-var _ = cron.NewJob("older-tasks-archivator", cron.JobConfig{
+var _ = cron.NewJob("older-tasks-archiver", cron.JobConfig{
 	Title:    "Move tasks from `Inbox` project to `inbox_archive` if they are older than 3 days",
 	Schedule: "0 6 * * *",
 	Endpoint: ArchiveOlderTasksEndpoint,
@@ -51,7 +54,13 @@ var _ = cron.NewJob("ask-for-toggl-entry", cron.JobConfig{
 
 //encore:api private method=GET path=/projects/incorrect
 func (s *Service) GetIncorrectProjectsEndpoint(ctx context.Context) (*api.IncorrectResponse, error) {
-	return api.SendReportAboutIncorrectProjectsToTelegram(secrets.TodoistApiToken, secrets.TelegramApiToken, secrets.TelegramUserID)
+	excludeFromZeroProjectsList := secrets.ExcludeFromZeroProjectsList
+	return api.SendReportAboutIncorrectProjectsToTelegram(
+		secrets.TodoistApiToken,
+		secrets.TelegramApiToken,
+		secrets.TelegramUserID,
+		excludeFromZeroProjectsList,
+	)
 }
 
 //encore:api private method=POST path=/tasks/archive-older

@@ -1,6 +1,7 @@
 package main
 
 import (
+	"encoding/json"
 	"github.com/aws/aws-cdk-go/awscdk/v2"
 	"github.com/aws/aws-cdk-go/awscdk/v2/awsevents"
 	"github.com/aws/aws-cdk-go/awscdk/v2/awseventstargets"
@@ -13,6 +14,7 @@ import (
 	"github.com/aws/jsii-runtime-go"
 	"github.com/joho/godotenv"
 	"os"
+	"strings"
 )
 
 type CdkStackProps struct {
@@ -40,6 +42,21 @@ func NewCdkStack(scope constructs.Construct, id string, props *CdkStackProps) aw
 		Resources: jsii.Strings(secretsARN),
 	})
 
+	file, err := os.Open("config.json")
+	must(err)
+
+	decoder := json.NewDecoder(file)
+	var config struct {
+		ExcludeFromZeroProjectsList []string
+	}
+	err = decoder.Decode(&config)
+	must(err)
+
+	zeroProjectsListJoined := strings.Join(config.ExcludeFromZeroProjectsList, ";")
+	envVars := &map[string]*string{
+		"ExcludeFromZeroProjectsList": jsii.String(zeroProjectsListJoined),
+	}
+
 	// lambdas
 	limitDoNowTasksFunction := awscdklambdagoalpha.NewGoFunction(
 		stack,
@@ -50,6 +67,7 @@ func NewCdkStack(scope constructs.Construct, id string, props *CdkStackProps) aw
 			Entry:         jsii.String("lambdas/limit-do-now-tasks/main.go"),
 			Runtime:       awslambda.Runtime_GO_1_X(),
 			InitialPolicy: &[]awsiam.PolicyStatement{readSecretsPolicyStatement},
+			Environment:   envVars,
 		},
 	)
 	archiveOlderInboxTasks := awscdklambdagoalpha.NewGoFunction(
@@ -96,13 +114,17 @@ func NewCdkStack(scope constructs.Construct, id string, props *CdkStackProps) aw
 	return stack
 }
 
+func must(err error) {
+	if err != nil {
+		panic(err)
+	}
+}
+
 func main() {
 	defer jsii.Close()
 
 	err := godotenv.Load(".env")
-	if err != nil {
-		panic(err)
-	}
+	must(err)
 
 	app := awscdk.NewApp(&awscdk.AppProps{})
 

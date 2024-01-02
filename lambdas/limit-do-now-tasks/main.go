@@ -13,6 +13,7 @@ import (
 	"github.com/valeriikundas/todoist-scripts/api"
 	"log"
 	"os"
+	"strings"
 )
 
 func handler(ctx context.Context, request events.APIGatewayProxyRequest) (events.APIGatewayProxyResponse, error) {
@@ -46,7 +47,20 @@ func handler(ctx context.Context, request events.APIGatewayProxyRequest) (events
 		}, errors.Wrap(err, "failed to unmarshal secret")
 	}
 
-	resp, err := api.SendReportAboutIncorrectProjectsToTelegram(secrets.TodoistApiToken, secrets.TelegramApiToken, secrets.TelegramUserID)
+	excludeFromZeroProjectsString, ok := os.LookupEnv("ExcludeFromZeroProjectsList")
+	if !ok {
+		return events.APIGatewayProxyResponse{StatusCode: 500,
+			Body: "",
+		}, errors.New("ExcludeFromZeroProjectsList environment variable is not set")
+	}
+	excludeFromZeroProjectsList := strings.Split(excludeFromZeroProjectsString, ";")
+
+	resp, err := api.SendReportAboutIncorrectProjectsToTelegram(
+		secrets.TodoistApiToken,
+		secrets.TelegramApiToken,
+		secrets.TelegramUserID,
+		excludeFromZeroProjectsList,
+	)
 	if err != nil {
 		return events.APIGatewayProxyResponse{
 			StatusCode: 500,

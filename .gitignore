@@ -6,3 +6,4 @@ experimental/
 .idea/
 .DS_Store
 cdk.out/
+config.json

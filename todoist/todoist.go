@@ -22,7 +22,10 @@ func NewClient(apiToken string) *Client {
 	return &Client{apiToken: apiToken}
 }
 
-func (t *Client) GetProjectsWithTooManyAndZeroTasks(limit int) (projectsWithTooManyTasks []IncorrectProjectSchema, projectsWithZeroTasks []IncorrectProjectSchema) {
+func (t *Client) GetProjectsWithTooManyAndZeroTasks(limit int, excludeFromZeroProjectsList []string) (
+	projectsWithTooManyTasks []IncorrectProjectSchema,
+	projectsWithZeroTasks []IncorrectProjectSchema,
+) {
 	// TODO: maybe `get all sections` will be more useful
 	projects := t.getProjectList()
 	// fixme: getTasks() fetches too many tasks, filter in some way, can fetch by label straight away or fetch by project
@@ -32,9 +35,8 @@ func (t *Client) GetProjectsWithTooManyAndZeroTasks(limit int) (projectsWithTooM
 	projectsWithTooManyTasks = t.filterProjects(nextActionTasks, limit)
 
 	projectsWithZeroTasks = make([]IncorrectProjectSchema, 0, 100)
-	excludeFromZeroProjects := []string{"Inbox", "gtd", "inbox_archive"}
 	for _, project := range projects {
-		if slices.Contains(excludeFromZeroProjects, project.Name) {
+		if slices.Contains(excludeFromZeroProjectsList, project.Name) {
 			continue
 		}
 
