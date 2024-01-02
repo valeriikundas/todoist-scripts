@@ -321,14 +321,20 @@ func (t *Client) getTasksURL(projectName string, label *string) string {
 
 func (t *Client) PrettyOutput(projectsWithTooManyTasks []IncorrectProjectSchema, projectsWithZeroTasks []IncorrectProjectSchema) string {
 	builder := strings.Builder{}
-	builder.WriteString("projects with too many @next_action tasks:\n")
-	for _, p := range projectsWithTooManyTasks {
-		builder.WriteString(fmt.Sprintf("name: %s\n active tasks: %d\n link: %s\n\n", p.ProjectName, p.TasksCount, p.URL))
+
+	if len(projectsWithTooManyTasks) > 0 {
+		builder.WriteString("projects with too many @next_action tasks:\n")
+		for _, p := range projectsWithTooManyTasks {
+			builder.WriteString(fmt.Sprintf("name: %s\n active tasks: %d\n link: %s\n\n", p.ProjectName, p.TasksCount, p.URL))
+		}
 	}
-	builder.WriteString("\nprojects without @next_action tasks:\n")
-	for _, p := range projectsWithZeroTasks {
-		builder.WriteString(fmt.Sprintf("name: %s\n link: %s\n\n", p.ProjectName, p.URL))
+
+	if len(projectsWithZeroTasks) > 0 {
+		builder.WriteString("\nprojects without @next_action tasks:\n")
+		for _, p := range projectsWithZeroTasks {
+			builder.WriteString(fmt.Sprintf("%s - %s\n", p.ProjectName, p.URL))
+		}
 	}
-	message := builder.String()
-	return message
+
+	return builder.String()
 }
