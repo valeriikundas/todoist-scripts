@@ -1,14 +1,20 @@
 package main
 
 import (
-	"log"
-	"os"
-	"strconv"
-
+	"encoding/json"
 	"github.com/joho/godotenv"
 	"github.com/valeriikundas/todoist-scripts/telegram"
 	"github.com/valeriikundas/todoist-scripts/todoist"
+	"log"
+	"os"
+	"strconv"
 )
+
+func must(err error) {
+	if err != nil {
+		panic(err)
+	}
+}
 
 func main() {
 	log.SetFlags(log.LstdFlags | log.Lshortfile)
@@ -25,16 +31,26 @@ func main() {
 		log.Fatalf("error converting chatID to int, %v", err)
 	}
 
+	todoistClient := todoist.NewClient(todoistApiToken)
 	nextActionsTasksLimitPerProject := 3
 
-	todoistClient := todoist.NewClient(todoistApiToken)
-	projectsWithTooManyTasks, projectsWithZeroTasks := todoistClient.GetProjectsWithTooManyAndZeroTasks(nextActionsTasksLimitPerProject)
+	file, err := os.Open("../config.json")
+	must(err)
+
+	decoder := json.NewDecoder(file)
+	var config struct {
+		ExcludeFromZeroProjectsList []string
+	}
+	err = decoder.Decode(&config)
+	must(err)
+
+	projectsWithTooManyTasks, projectsWithZeroTasks := todoistClient.GetProjectsWithTooManyAndZeroTasks(nextActionsTasksLimitPerProject, config.ExcludeFromZeroProjectsList)
 	log.Printf("projectsWithTooManyTasks=%+v projectsWithZeroTasks=%+v", projectsWithTooManyTasks, projectsWithZeroTasks)
 
 	message := todoistClient.PrettyOutput(projectsWithTooManyTasks, projectsWithZeroTasks)
 
 	tg := telegram.NewTelegram(telegramApiToken)
-	err = tg.Send(chatID, message)
+	err = tg.Send(chatID, message, telegram.ParseModeMarkdownV2)
 	if err != nil {
 		log.Fatalf("error sending message, %v", err)
 	}

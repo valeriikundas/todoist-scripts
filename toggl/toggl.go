@@ -98,7 +98,7 @@ func NotifyIfNoRunningTogglEntry(togglApiToken string, telegramApiToken string, 
 
 	if timeEntry == nil {
 		tg := telegram.NewTelegram(telegramApiToken)
-		err := tg.Send(telegramUserID, "No Toggl time entry found")
+		err = tg.Send(telegramUserID, "No Toggl time entry found", telegram.ParseModeMarkdownV2)
 		if err != nil {
 			return err
 		}

@@ -30,7 +30,7 @@ func SendReportAboutIncorrectProjectsToTelegram(
 		return nil, err
 	}
 
-	err = tg.Send(telegramUserID, message)
+	err = tg.Send(telegramUserID, message, telegram.ParseModeMarkdownV2)
 	if err != nil {
 		return nil, err
 	}

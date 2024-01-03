@@ -85,9 +85,9 @@ func (t *Client) MoveOlderTasks(srcProjectName, dstProjectName string, oldThresh
 }
 
 func (t *Client) getProjectList() []Project {
-	url := "https://api.todoist.com/rest/v2/projects"
+	projectsUrl := "https://api.todoist.com/rest/v2/projects"
 
-	b := t.doTodoistRequest(url)
+	b := t.doTodoistRequest(projectsUrl)
 
 	var projects []Project
 	err := json.Unmarshal(b, &projects)
@@ -99,8 +99,8 @@ func (t *Client) getProjectList() []Project {
 }
 
 func (t *Client) getTasks() []Task {
-	url := "https://api.todoist.com/rest/v2/tasks"
-	b := t.doTodoistRequest(url)
+	tasksUrl := "https://api.todoist.com/rest/v2/tasks"
+	b := t.doTodoistRequest(tasksUrl)
 
 	var tasks []Task
 	err := json.Unmarshal(b, &tasks)
@@ -113,8 +113,8 @@ func (t *Client) getTasks() []Task {
 
 func (t *Client) getProjectTasks(project Project) []Task {
 	projectID := project.ID
-	url := fmt.Sprintf("https://api.todoist.com/rest/v2/tasks?project_id=%s", projectID)
-	b := t.doTodoistRequest(url)
+	projectTasksUrl := fmt.Sprintf("https://api.todoist.com/rest/v2/tasks?project_id=%s", projectID)
+	b := t.doTodoistRequest(projectTasksUrl)
 
 	var tasks []Task
 	err := json.Unmarshal(b, &tasks)
@@ -189,8 +189,8 @@ func (t *Client) doTodoistPostRequest(method string, url string, body io.Reader)
 	return resultBytes
 }
 
-func (t *Client) moveTask(task_id string, project_id string, dryRun bool) {
-	logMessage := fmt.Sprintf("moving task_id=%s to project_id=%s\n", task_id, project_id)
+func (t *Client) moveTask(taskID string, projectID string, dryRun bool) {
+	logMessage := fmt.Sprintf("moving task_id=%s to project_id=%s\n", taskID, projectID)
 	if dryRun {
 		log.Printf("dry run: %v", logMessage)
 		return
@@ -201,8 +201,8 @@ func (t *Client) moveTask(task_id string, project_id string, dryRun bool) {
 		{
 			Type: "item_move",
 			Args: MoveCommandArgs{
-				Id:        task_id,
-				ProjectID: project_id,
+				Id:        taskID,
+				ProjectID: projectID,
 			},
 			Uuid: uuid.New().String(),
 		},
@@ -212,7 +212,7 @@ func (t *Client) moveTask(task_id string, project_id string, dryRun bool) {
 	if err != nil {
 		log.Fatal(err)
 	}
-	bodyReader := strings.NewReader(fmt.Sprintf("commands=%+s", string(b)))
+	bodyReader := strings.NewReader(fmt.Sprintf("commands=%s", string(b)))
 
 	resp := t.doTodoistPostRequest(http.MethodPost, "https://api.todoist.com/sync/v9/sync", bodyReader)
 
@@ -257,11 +257,11 @@ func (t *Client) filterProjects(nextActionTasks map[string][]Task, nextActionsTa
 	for projectName, projectTasks := range nextActionTasks {
 		if len(projectTasks) > nextActionsTasksLimitPerProject {
 			filterLabel := "next_action"
-			url := t.getTasksURL(projectName, &filterLabel)
+			tasksUrl := t.getTasksURL(projectName, &filterLabel)
 			projectsWithTooManyTasks = append(projectsWithTooManyTasks, IncorrectProjectSchema{
 				ProjectName: projectName,
 				TasksCount:  len(projectTasks),
-				URL:         url,
+				URL:         tasksUrl,
 				Limit:       nextActionsTasksLimitPerProject,
 				Description: "Project has more active tasks that allowed",
 			})
@@ -274,13 +274,13 @@ func (t *Client) filterProjects(nextActionTasks map[string][]Task, nextActionsTa
 func (t *Client) mapTasksToProjectAndFilterByLabel(projects []Project, tasks []Task) map[string][]Task {
 	// FIXME: split into 2 steps: 1. filter tasks by label 2. map tasks to project
 	// FIXME: move tasks filter to API query
-	// FIXME: rewrite to map[projecID]Task
+	// FIXME: rewrite to map[projectID]Task
 	nextActionTasks := map[string][]Task{}
 	for _, task := range tasks {
 		projectName := t.getProjectNameByProjectID(task.ProjectID, projects)
 		if projectName == nil {
 			// FIXME: look into it
-			// log.Printf("nil projectName for projectid=%s taskName=%s\n", task.ProjectID, task.Content)
+			// log.Printf("nil projectName for projectID=%s taskName=%s\n", task.ProjectID, task.Content)
 			continue
 		}
 
@@ -315,8 +315,8 @@ func (t *Client) getTasksURL(projectName string, label *string) string {
 		query = fmt.Sprintf("@%s&#%s", *label, projectName)
 	}
 	escapedQuery := url.QueryEscape(query)
-	url := fmt.Sprintf("https://todoist.com/app/search/%s", escapedQuery)
-	return url
+	tasksUrl := fmt.Sprintf("https://todoist.com/app/search/%s", escapedQuery)
+	return tasksUrl
 }
 
 func (t *Client) PrettyOutput(projectsWithTooManyTasks []IncorrectProjectSchema, projectsWithZeroTasks []IncorrectProjectSchema) string {
@@ -330,11 +330,26 @@ func (t *Client) PrettyOutput(projectsWithTooManyTasks []IncorrectProjectSchema,
 	}
 
 	if len(projectsWithZeroTasks) > 0 {
-		builder.WriteString("\nprojects without @next_action tasks:\n")
+		builder.WriteString("\n")
+		builder.WriteString("projects without @next_action tasks:\n")
 		for _, p := range projectsWithZeroTasks {
-			builder.WriteString(fmt.Sprintf("%s - %s\n", p.ProjectName, p.URL))
+			builder.WriteString(fmt.Sprintf("[%s](%s)\n", p.ProjectName, p.URL))
 		}
 	}
 
-	return builder.String()
+	return addBacklash(builder.String())
+}
+
+func addBacklash(s string) string {
+	b := strings.Builder{}
+	escapeChars := []rune{'_'}
+	for _, c := range s {
+		if slices.Contains(escapeChars, c) {
+			b.WriteRune('\\')
+			b.WriteRune(c)
+		} else {
+			b.WriteRune(c)
+		}
+	}
+	return b.String()
 }
