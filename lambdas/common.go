@@ -1,4 +1,4 @@
-package lambda_common
+package lambdacommon
 
 import (
 	"context"
@@ -55,7 +55,7 @@ func withSetup[R any](f func(secrets *Secrets) (R, error)) (
 
 	secrets, err := readSecrets()
 	if err != nil {
-		return empty500Response(), errors.Wrap(err, "failed to read Secrets")
+		return empty500Response(), errors.Wrap(err, "failed to read secrets")
 	}
 
 	resp, err := f(secrets)
@@ -86,14 +86,14 @@ func readSecrets() (*Secrets, error) {
 	secretsManager := secretsmanager.New(sess, &aws.Config{})
 
 	secretsOutput, err := secretsManager.GetSecretValue(&secretsmanager.GetSecretValueInput{
-		SecretId: jsii.String("gtd-Secrets"),
+		SecretId: jsii.String("gtd-secrets"),
 	})
 	if err != nil {
 		return nil, errors.Wrap(err, "failed to get secret value")
 	}
 
 	var secrets *Secrets
-	err = json.Unmarshal([]byte(*secretsOutput.SecretString), secrets)
+	err = json.Unmarshal([]byte(*secretsOutput.SecretString), &secrets)
 	if err != nil {
 		return nil, errors.Wrap(err, "failed to unmarshal secret")
 	}
