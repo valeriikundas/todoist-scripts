@@ -42,21 +42,6 @@ func NewCdkStack(scope constructs.Construct, id string, props *CdkStackProps) aw
 		Resources: jsii.Strings(secretsARN),
 	})
 
-	file, err := os.Open("config.json")
-	must(err)
-
-	decoder := json.NewDecoder(file)
-	var config struct {
-		ExcludeFromZeroProjectsList []string
-	}
-	err = decoder.Decode(&config)
-	must(err)
-
-	zeroProjectsListJoined := strings.Join(config.ExcludeFromZeroProjectsList, ";")
-	envVars := &map[string]*string{
-		"ExcludeFromZeroProjectsList": jsii.String(zeroProjectsListJoined),
-	}
-
 	// lambdas
 	limitDoNowTasksFunction := awscdklambdagoalpha.NewGoFunction(
 		stack,
@@ -67,7 +52,7 @@ func NewCdkStack(scope constructs.Construct, id string, props *CdkStackProps) aw
 			Entry:         jsii.String("lambdas/limit-do-now-tasks/main.go"),
 			Runtime:       awslambda.Runtime_GO_1_X(),
 			InitialPolicy: &[]awsiam.PolicyStatement{readSecretsPolicyStatement},
-			Environment:   envVars,
+			Environment:   readEnvVars("config.json"),
 		},
 	)
 	archiveOlderInboxTasks := awscdklambdagoalpha.NewGoFunction(
@@ -112,6 +97,24 @@ func NewCdkStack(scope constructs.Construct, id string, props *CdkStackProps) aw
 	})
 
 	return stack
+}
+
+func readEnvVars(configFileName string) *map[string]*string {
+	file, err := os.Open(configFileName)
+	must(err)
+
+	decoder := json.NewDecoder(file)
+	var config struct {
+		ExcludeFromZeroProjectsList []string
+	}
+	err = decoder.Decode(&config)
+	must(err)
+
+	zeroProjectsListJoined := strings.Join(config.ExcludeFromZeroProjectsList, ";")
+	envVars := &map[string]*string{
+		"ExcludeFromZeroProjectsList": jsii.String(zeroProjectsListJoined),
+	}
+	return envVars
 }
 
 func must(err error) {
