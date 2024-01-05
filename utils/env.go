@@ -3,6 +3,7 @@ package utils
 import (
 	"encoding/json"
 	"github.com/aws/jsii-runtime-go"
+	"log"
 	"os"
 	"strings"
 )
@@ -17,8 +18,16 @@ func ReadConfig(configs ...string) *map[string]*string {
 		panic("Only one config file is allowed")
 	}
 
-	if _, err := os.Stat(configs[0]); os.IsNotExist(err) {
-		panic("Config file does not exist")
+	_, err := os.Stat(configs[0])
+	if err != nil {
+		if os.IsNotExist(err) {
+			log.Print("Config file not found, using default config")
+			return &map[string]*string{
+				"ExcludeFromZeroProjectsList": jsii.String(""),
+			}
+		} else {
+			panic(err)
+		}
 	}
 
 	configFileName := configs[0]
