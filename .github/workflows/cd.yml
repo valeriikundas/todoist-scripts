@@ -32,6 +32,13 @@ jobs:
       id-token: write
       contents: read
     steps:
+      - uses: actions/checkout@v3
+
+      - name: Set up Go
+        uses: actions/setup-go@v4
+        with:
+          go-version: '1.21'
+
       - name: install cdk
         run: npm install -g aws-cdk
 
