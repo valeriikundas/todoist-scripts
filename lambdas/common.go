@@ -9,7 +9,9 @@ import (
 	"github.com/aws/aws-sdk-go/aws/session"
 	"github.com/aws/aws-sdk-go/service/secretsmanager"
 	"github.com/aws/jsii-runtime-go"
+	"github.com/joho/godotenv"
 	"github.com/pkg/errors"
+	"github.com/valeriikundas/todoist-scripts/utils"
 	"log"
 	"os"
 )
@@ -36,15 +38,27 @@ func runWithEnv(f func(ctx context.Context, request events.APIGatewayProxyReques
 )) {
 	runtimeApi := os.Getenv("AWS_LAMBDA_RUNTIME_API")
 	if runtimeApi == "" {
-		resp, err := f(context.TODO(), events.APIGatewayProxyRequest{})
-		if err != nil {
-			log.Fatal(err)
+		config := *utils.ReadConfig()
+		for key, value := range config {
+			os.Setenv(key, *value)
 		}
+
+		err := godotenv.Load(".env")
+		must(err)
+
+		resp, err := f(context.TODO(), events.APIGatewayProxyRequest{})
+		must(err)
 		log.Print(resp)
 		return
 	}
 
 	lambda.Start(f)
+}
+
+func must(err error) {
+	if err != nil {
+		panic(err)
+	}
 }
 
 func withSetup[R any](f func(secrets *Secrets) (R, error)) (

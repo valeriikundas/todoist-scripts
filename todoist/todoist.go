@@ -337,19 +337,5 @@ func (t *Client) PrettyOutput(projectsWithTooManyTasks []IncorrectProjectSchema,
 		}
 	}
 
-	return addBacklash(builder.String())
-}
-
-func addBacklash(s string) string {
-	b := strings.Builder{}
-	escapeChars := []rune{'_'}
-	for _, c := range s {
-		if slices.Contains(escapeChars, c) {
-			b.WriteRune('\\')
-			b.WriteRune(c)
-		} else {
-			b.WriteRune(c)
-		}
-	}
-	return b.String()
+	return builder.String()
 }

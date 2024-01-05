@@ -4,6 +4,8 @@ import (
 	"bytes"
 	"encoding/json"
 	"github.com/pkg/errors"
+	"slices"
+	"strings"
 
 	"fmt"
 	"io"
@@ -20,7 +22,7 @@ type SendError struct {
 }
 
 func (e SendError) Error() string {
-	return fmt.Sprintf("telegram send error: code=%d description= %s", e.ErrorCode, e.Description)
+	return fmt.Sprintf("telegram send error: code=%d description=%s", e.ErrorCode, e.Description)
 }
 
 type Telegram struct {
@@ -37,6 +39,8 @@ func (t *Telegram) Send(chatID int, message string, parseMode string) error {
 		Host:   "api.telegram.org",
 		Path:   fmt.Sprintf("bot%s/sendMessage", t.apiToken),
 	}
+
+	message = addBacklash(message)
 
 	requestData := struct {
 		ChatID    int    `json:"chat_id"`
@@ -84,6 +88,21 @@ func (t *Telegram) Send(chatID int, message string, parseMode string) error {
 
 	log.Printf("sent telegram message: %s", string(b))
 	return nil
+}
+
+// addBacklash escapes special characters in the given string.
+func addBacklash(s string) string {
+	b := strings.Builder{}
+	escapeChars := []rune{'_', '.'}
+	for _, c := range s {
+		if slices.Contains(escapeChars, c) {
+			b.WriteRune('\\')
+			b.WriteRune(c)
+		} else {
+			b.WriteRune(c)
+		}
+	}
+	return b.String()
 }
 
 func (t *Telegram) Ask(chatID string, query string) error {

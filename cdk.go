@@ -1,7 +1,6 @@
 package main
 
 import (
-	"encoding/json"
 	"github.com/aws/aws-cdk-go/awscdk/v2"
 	"github.com/aws/aws-cdk-go/awscdk/v2/awsevents"
 	"github.com/aws/aws-cdk-go/awscdk/v2/awseventstargets"
@@ -13,8 +12,8 @@ import (
 	"github.com/aws/constructs-go/constructs/v10"
 	"github.com/aws/jsii-runtime-go"
 	"github.com/joho/godotenv"
+	"github.com/valeriikundas/todoist-scripts/utils"
 	"os"
-	"strings"
 )
 
 type CdkStackProps struct {
@@ -52,7 +51,7 @@ func NewCdkStack(scope constructs.Construct, id string, props *CdkStackProps) aw
 			Entry:         jsii.String("lambdas/limit-do-now-tasks/main.go"),
 			Runtime:       awslambda.Runtime_GO_1_X(),
 			InitialPolicy: &[]awsiam.PolicyStatement{readSecretsPolicyStatement},
-			Environment:   readEnvVars("config.json"),
+			Environment:   utils.ReadConfig(),
 		},
 	)
 	archiveOlderInboxTasks := awscdklambdagoalpha.NewGoFunction(
@@ -99,30 +98,6 @@ func NewCdkStack(scope constructs.Construct, id string, props *CdkStackProps) aw
 	return stack
 }
 
-func readEnvVars(configFileName string) *map[string]*string {
-	file, err := os.Open(configFileName)
-	must(err)
-
-	decoder := json.NewDecoder(file)
-	var config struct {
-		ExcludeFromZeroProjectsList []string
-	}
-	err = decoder.Decode(&config)
-	must(err)
-
-	zeroProjectsListJoined := strings.Join(config.ExcludeFromZeroProjectsList, ";")
-	envVars := &map[string]*string{
-		"ExcludeFromZeroProjectsList": jsii.String(zeroProjectsListJoined),
-	}
-	return envVars
-}
-
-func must(err error) {
-	if err != nil {
-		panic(err)
-	}
-}
-
 func main() {
 	defer jsii.Close()
 
@@ -141,4 +116,10 @@ func main() {
 	})
 
 	app.Synth(nil)
+}
+
+func must(err error) {
+	if err != nil {
+		panic(err)
+	}
 }

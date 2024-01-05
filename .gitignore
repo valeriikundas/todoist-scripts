@@ -7,3 +7,4 @@ experimental/
 .DS_Store
 cdk.out/
 config.json
+experiments/
