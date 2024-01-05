@@ -1,6 +1,7 @@
 package main
 
 import (
+	"fmt"
 	"github.com/aws/aws-cdk-go/awscdk/v2"
 	"github.com/aws/aws-cdk-go/awscdk/v2/awsevents"
 	"github.com/aws/aws-cdk-go/awscdk/v2/awseventstargets"
@@ -105,11 +106,13 @@ func main() {
 
 	app := awscdk.NewApp(&awscdk.AppProps{})
 
+	awsAccountID := getEnvVarOrPanic("AWS_ACCOUNT_ID")
+	awsRegion := getEnvVarOrPanic("AWS_REGION")
 	NewCdkStack(app, "gtd-scripts", &CdkStackProps{
 		awscdk.StackProps{
 			Env: &awscdk.Environment{
-				Account: jsii.String(os.Getenv("AWS_ACCOUNT_ID")),
-				Region:  jsii.String(os.Getenv("AWS_REGION")),
+				Account: jsii.String(awsAccountID),
+				Region:  jsii.String(awsRegion),
 			},
 		},
 	})
@@ -130,6 +133,14 @@ func tryReadDotenv() {
 		err = godotenv.Load(".env")
 		must(err)
 	}
+}
+
+func getEnvVarOrPanic(k string) string {
+	val, ok := os.LookupEnv(k)
+	if !ok {
+		panic(fmt.Sprintf("%s environment variable is missing", k))
+	}
+	return val
 }
 
 func must(err error) {
