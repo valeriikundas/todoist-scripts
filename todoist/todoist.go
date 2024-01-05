@@ -325,7 +325,7 @@ func (t *Client) PrettyOutput(projectsWithTooManyTasks []IncorrectProjectSchema,
 	if len(projectsWithTooManyTasks) > 0 {
 		builder.WriteString("projects with too many @next_action tasks:\n")
 		for _, p := range projectsWithTooManyTasks {
-			builder.WriteString(fmt.Sprintf("name: %s\n active tasks: %d\n link: %s\n\n", p.ProjectName, p.TasksCount, p.URL))
+			builder.WriteString(fmt.Sprintf("%d - [%s](%s)\n", p.TasksCount, p.ProjectName, p.URL))
 		}
 	}
 
