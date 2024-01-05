@@ -8,8 +8,10 @@ import (
 	"strings"
 )
 
-// todo: read about project structure
 func ReadConfig(configs ...string) *map[string]*string {
+	// todo: read about project structure
+	// todo: remove config, use env for everything
+
 	if len(configs) == 0 {
 		configs = []string{"./config.json"}
 	}
@@ -21,9 +23,13 @@ func ReadConfig(configs ...string) *map[string]*string {
 	_, err := os.Stat(configs[0])
 	if err != nil {
 		if os.IsNotExist(err) {
-			log.Print("Config file not found, using default config")
+			log.Print("Config file not found, using environment variables")
+			excludeFromZeroProjectsList, ok := os.LookupEnv("ExcludeFromZeroProjectsList")
+			if !ok {
+				panic("ExcludeFromZeroProjectsList environment variable is missing")
+			}
 			return &map[string]*string{
-				"ExcludeFromZeroProjectsList": jsii.String(""),
+				"ExcludeFromZeroProjectsList": jsii.String(excludeFromZeroProjectsList),
 			}
 		} else {
 			panic(err)
