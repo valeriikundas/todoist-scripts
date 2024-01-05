@@ -28,15 +28,21 @@ jobs:
 
   aws_cdk:
     runs-on: ubuntu-latest
+    permissions:
+      id-token: write
+      contents: read
     steps:
-      - name: cdk deploy
-        uses: youyo/aws-cdk-github-actions@v2
+      - name: install cdk
+        run: npm install -g aws-cdk
+
+      - name: Configure AWS Credentials
+        uses: aws-actions/configure-aws-credentials@v4
         with:
-          cdk_subcommand: 'deploy'
-          cdk_stack: 'gtd-scripts'
-          cdk_args: '--require-approval never --app "go mod download && go run cdk.go"'
-          actions_comment: false
-          working_dir: '.'
+          role-to-assume: arn:aws:iam::751699088716:role/allow-github-actions-to-cdk-deploy
+          aws-region: eu-central-1
+
+      - name: deploy stack
+        run: cdk deploy --require-approval never --app "go mod download && go run cdk.go"
         env:
           AWS_ACCESS_KEY_ID: ${{ secrets.AWS_ACCESS_KEY_ID }}
           AWS_SECRET_ACCESS_KEY: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
