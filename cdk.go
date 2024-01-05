@@ -101,8 +101,7 @@ func NewCdkStack(scope constructs.Construct, id string, props *CdkStackProps) aw
 func main() {
 	defer jsii.Close()
 
-	err := godotenv.Load(".env")
-	must(err)
+	tryReadDotenv()
 
 	app := awscdk.NewApp(&awscdk.AppProps{})
 
@@ -116,6 +115,21 @@ func main() {
 	})
 
 	app.Synth(nil)
+}
+
+func tryReadDotenv() {
+	_, err := os.Stat(".env")
+	if err != nil {
+		if os.IsNotExist(err) {
+			return
+		} else {
+			must(err)
+		}
+	} else {
+		// .env exists
+		err = godotenv.Load(".env")
+		must(err)
+	}
 }
 
 func must(err error) {
