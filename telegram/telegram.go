@@ -93,7 +93,7 @@ func (t *Telegram) Send(chatID int, message string, parseMode string) error {
 // addBacklash escapes special characters in the given string.
 func addBacklash(s string) string {
 	b := strings.Builder{}
-	escapeChars := []rune{'_', '.'}
+	escapeChars := []rune{'_', '.', '-'}
 	for _, c := range s {
 		if slices.Contains(escapeChars, c) {
 			b.WriteRune('\\')
