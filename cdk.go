@@ -114,6 +114,9 @@ func main() {
 				Account: jsii.String(awsAccountID),
 				Region:  jsii.String(awsRegion),
 			},
+			Tags: &map[string]*string{
+				"AppManagerCFNStackKey": jsii.String("gtd-scripts"),
+			},
 		},
 	})
 
