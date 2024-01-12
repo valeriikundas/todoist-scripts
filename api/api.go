@@ -2,12 +2,13 @@ package api
 
 import (
 	"errors"
-	"github.com/valeriikundas/todoist-scripts/telegram"
-	"github.com/valeriikundas/todoist-scripts/todoist"
-	"github.com/valeriikundas/todoist-scripts/toggl"
 	"log"
 	"strconv"
 	"time"
+
+	"github.com/valeriikundas/todoist-scripts/telegram"
+	"github.com/valeriikundas/todoist-scripts/todoist"
+	"github.com/valeriikundas/todoist-scripts/toggl"
 )
 
 func SendReportAboutIncorrectProjectsToTelegram(
@@ -17,7 +18,7 @@ func SendReportAboutIncorrectProjectsToTelegram(
 	excludeFromZeroProjectsList []string,
 ) (*IncorrectResponse, error) {
 	todoistClient := todoist.NewClient(todoistApiToken)
-	tooMany, zero := todoistClient.GetProjectsWithTooManyAndZeroTasks(3, excludeFromZeroProjectsList)
+	tooMany, zero := todoistClient.GetProjectsWithTooManyAndZeroTasks(1, excludeFromZeroProjectsList)
 	combined := IncorrectResponse{
 		TooMany: tooMany,
 		Zero:    zero,
