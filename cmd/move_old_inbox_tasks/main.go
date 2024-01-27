@@ -25,5 +25,5 @@ func main() {
 	dryRun := false
 
 	todoistClient := todoist.NewClient(todoistApiToken)
-	todoistClient.MoveOlderTasks(srcProjectName, dstProjectName, oldThreshold, dryRun)
+	todoistClient.MoveInactiveTasks(srcProjectName, dstProjectName, oldThreshold, dryRun)
 }

@@ -14,6 +14,8 @@ import (
 	"github.com/google/uuid"
 )
 
+const PriorityThreshold = 3
+
 type Client struct {
 	apiToken string
 }
@@ -63,7 +65,8 @@ type IncorrectProjectSchema struct {
 	Description string `json:"description"`
 }
 
-func (t *Client) MoveOlderTasks(srcProjectName, dstProjectName string, oldThreshold time.Duration, dryRun bool) []Task {
+// MoveInactiveTasks moves tasks from one project to another that are older and have low priority
+func (t *Client) MoveInactiveTasks(srcProjectName, dstProjectName string, oldThreshold time.Duration, dryRun bool) []Task {
 	projects := t.getProjectList()
 
 	srcProject, ok := t.findProjectByName(projects, srcProjectName)
@@ -73,15 +76,26 @@ func (t *Client) MoveOlderTasks(srcProjectName, dstProjectName string, oldThresh
 	}
 
 	tasks := t.getProjectTasks(*srcProject)
-	oldTasks := t.filterOldTasks(tasks, oldThreshold)
+	filteredTasks := t.filterTasksByCreationTime(tasks, oldThreshold)
+	filteredTasks = t.filterByPriority(filteredTasks, PriorityThreshold)
 
 	dstProject, ok := t.findProjectByName(projects, dstProjectName)
 	if !ok {
 		log.Fatalf("did not find `%s` project\n", srcProjectName)
 	}
 
-	t.moveTasks(oldTasks, dstProject.ID, dryRun)
-	return oldTasks
+	t.moveTasks(filteredTasks, dstProject.ID, dryRun)
+	return filteredTasks
+}
+
+func (c *Client) filterByPriority(tasks []Task, priority int) []Task {
+	filteredTasks := make([]Task, 0)
+	for _, t := range tasks {
+		if t.Priority < priority {
+			filteredTasks = append(filteredTasks, t)
+		}
+	}
+	return filteredTasks
 }
 
 func (t *Client) getProjectList() []Project {
@@ -230,11 +244,11 @@ func (t *Client) moveTask(taskID string, projectID string, dryRun bool) {
 	log.Print(status)
 }
 
-func (t *Client) filterOldTasks(tasks []Task, duration time.Duration) []Task {
+func (c *Client) filterTasksByCreationTime(tasks []Task, duration time.Duration) []Task {
 	filteredTasks := make([]Task, 0, len(tasks))
 
+	oldTaskThreshold := time.Now().Add(-duration)
 	for _, t := range tasks {
-		oldTaskThreshold := time.Now().Add(-duration)
 		if t.CreatedAt.Compare(oldTaskThreshold) == -1 {
 			filteredTasks = append(filteredTasks, t)
 		}

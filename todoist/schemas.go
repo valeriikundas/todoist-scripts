@@ -12,6 +12,7 @@ type Task struct {
 	Content   string     `json:"content"`
 	Labels    []string   `json:"labels"`
 	CreatedAt TimeParser `json:"created_at"`
+	Priority  int        `json:"priority"`
 }
 
 type Command struct {
