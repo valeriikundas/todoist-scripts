@@ -44,16 +44,16 @@ type IncorrectResponse struct {
 	Zero    []todoist.IncorrectProjectSchema `json:"Zero"`
 }
 
-func ArchiveOlderInboxTasks(todoistApiToken string) (*MoveOlderTasksResponse, error) {
+func ArchiveInactiveInboxTasks(todoistApiToken string) (*MoveInactiveInboxTasksResponse, error) {
 	todoist := todoist.NewClient(todoistApiToken)
 	dstProjectName, oldThreshold, dryRun := "inbox_archive", time.Hour*24*3, false
 	tasks := todoist.MoveInactiveTasks("Inbox", dstProjectName, oldThreshold, dryRun)
-	return &MoveOlderTasksResponse{
+	return &MoveInactiveInboxTasksResponse{
 		Tasks: tasks,
 	}, nil
 }
 
-type MoveOlderTasksResponse struct {
+type MoveInactiveInboxTasksResponse struct {
 	Tasks []todoist.Task `json:"tasks"`
 }
 
